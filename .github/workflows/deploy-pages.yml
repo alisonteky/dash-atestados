@@ -27,6 +27,8 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Use demo data for public deploy
         run: cp public/data/dashboard-data.demo.json public/data/dashboard-data.json
