@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard de Atestados</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Operação JTU</p>
+        <h1>Atestados e Afastados</h1>
+      </div>
+      <div class="header-meta">
+        <span id="sourceStatus">Carregando dados...</span>
+        <button class="ghost-button" id="reloadButton" type="button">Atualizar</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="toolbar" aria-label="Filtros">
+        <label>
+          Ano
+          <select id="filterYear">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>
+          Mês
+          <select id="filterMonth">
+            <option value="">Todos</option>
+          </select>
+        </label>
+        <label>
+          Função
+          <select id="filterFunction">
+            <option value="">Todas</option>
+          </select>
+        </label>
+        <label>
+          Chapa
+          <select id="filterChapa">
+            <option value="">Todas</option>
+          </select>
+        </label>
+        <label class="search-field">
+          Busca
+          <input id="searchInput" type="search" placeholder="Nome, médico, CID..." autocomplete="off" />
+        </label>
+        <button class="icon-button" id="clearFilters" type="button" title="Limpar filtros" aria-label="Limpar filtros">×</button>
+      </section>
+
+      <nav class="tabs" aria-label="Visões">
+        <button class="tab active" type="button" data-tab="geral">Geral</button>
+        <button class="tab" type="button" data-tab="afastados">Afastados</button>
+        <button class="tab" type="button" data-tab="registros">Registros</button>
+        <button class="tab" type="button" data-tab="qualidade">Qualidade</button>
+      </nav>
+
+      <section class="tab-panel active" id="panel-geral">
+        <div class="kpi-grid" id="generalKpis"></div>
+
+        <div class="dashboard-grid">
+          <section class="panel panel-wide">
+            <div class="panel-heading">
+              <h2>Evolução Mensal</h2>
+              <span id="monthSummary"></span>
+            </div>
+            <div id="monthChart" class="vertical-chart"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Por Função</h2>
+            </div>
+            <div id="functionChart" class="bar-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Top Colaboradores</h2>
+            </div>
+            <div id="employeeList" class="bar-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Capítulos CID</h2>
+            </div>
+            <div id="cidList" class="bar-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Médicos</h2>
+            </div>
+            <div id="doctorList" class="rank-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-afastados">
+        <div class="kpi-grid" id="awayKpis"></div>
+        <div class="dashboard-grid">
+          <section class="panel panel-wide">
+            <div class="panel-heading">
+              <h2>Afastados Por Mês</h2>
+            </div>
+            <div id="awayMonthChart" class="vertical-chart"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Colaboradores Afastados</h2>
+            </div>
+            <div id="awayEmployeeList" class="bar-list"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>CID Em Afastados</h2>
+            </div>
+            <div id="awayCidList" class="bar-list"></div>
+          </section>
+        </div>
+        <section class="panel table-panel">
+          <div class="panel-heading">
+            <h2>Base De Afastados</h2>
+            <button class="ghost-button" id="exportAwayCsv" type="button">Exportar CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Colaborador</th>
+                  <th>Chapa</th>
+                  <th>Função</th>
+                  <th>Período</th>
+                  <th>Total</th>
+                  <th>Mês</th>
+                  <th>Médico</th>
+                  <th>Capítulo CID</th>
+                  <th>Subcategoria CID</th>
+                </tr>
+              </thead>
+              <tbody id="awayTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="panel-registros">
+        <section class="panel table-panel">
+          <div class="panel-heading">
+            <h2>Base De Atestados</h2>
+            <div class="table-actions">
+              <span id="recordCount"></span>
+              <button class="ghost-button" id="exportCsv" type="button">Exportar CSV</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Chapa</th>
+                  <th>Nome</th>
+                  <th>Função</th>
+                  <th>Período</th>
+                  <th>Data Inicial</th>
+                  <th>Data Final</th>
+                  <th>Dias</th>
+                  <th>Ano</th>
+                  <th>Atestado</th>
+                  <th>Mês</th>
+                  <th>Médico</th>
+                  <th>Capítulo CID</th>
+                  <th>Subcategoria CID</th>
+                </tr>
+              </thead>
+              <tbody id="recordsTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="tab-panel" id="panel-qualidade">
+        <div class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Validação</h2>
+            </div>
+            <div id="validationPanel" class="quality-stack"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Fonte</h2>
+            </div>
+            <div id="sourcePanel" class="quality-stack"></div>
+          </section>
+          <section class="panel panel-wide">
+            <div class="panel-heading">
+              <h2>Variações De CID</h2>
+            </div>
+            <div id="cidQualityPanel" class="quality-stack"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

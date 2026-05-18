@@ -1,0 +1,12 @@
+# Local/generated data
+public/data/dashboard-data.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Runtime logs
+*.log
+npm-debug.log*

@@ -1,0 +1,12 @@
+{
+  "name": "dash-atestados",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dashboard web para acompanhamento de atestados e afastados da operacao.",
+  "scripts": {
+    "import": "python scripts/import_excel.py",
+    "demo": "python scripts/anonymize_data.py",
+    "check": "python scripts/import_excel.py --check",
+    "dev": "python -m http.server 4173 --directory public"
+  }
+}
