@@ -27,6 +27,8 @@ DEFAULT_SOURCE = ROOT.parent / "ATESTADOS OPERAÇÃO 2026 cópia.xlsx"
 SESSION_COOKIE = "dash_session"
 SESSION_DAYS = 1
 PASSWORD_ITERATIONS = 260_000
+DEFAULT_ADMIN_USER = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin2026"
 
 sys.path.insert(0, str(ROOT))
 from scripts.import_excel import build_payload  # noqa: E402
@@ -119,8 +121,8 @@ def ensure_admin_user(conn: sqlite3.Connection) -> None:
     if existing:
         return
 
-    username = os.environ.get("DASH_ADMIN_USER", "admin")
-    password = os.environ.get("DASH_ADMIN_PASSWORD", "admin123")
+    username = os.environ.get("DASH_ADMIN_USER", DEFAULT_ADMIN_USER)
+    password = os.environ.get("DASH_ADMIN_PASSWORD", DEFAULT_ADMIN_PASSWORD)
     conn.execute(
         "INSERT INTO users (username, password_hash, role, created_at) VALUES (?, ?, ?, ?)",
         (username, hash_password(password), "admin", iso_now()),
@@ -460,7 +462,7 @@ def main() -> int:
     if os.environ.get("DASH_ADMIN_PASSWORD"):
         print("Credenciais administrativas carregadas das variaveis de ambiente.")
     else:
-        print("Login local inicial: admin / admin123")
+        print(f"Login local inicial: {DEFAULT_ADMIN_USER} / {DEFAULT_ADMIN_PASSWORD}")
     ThreadingHTTPServer(address, DashHandler).serve_forever()
     return 0
 

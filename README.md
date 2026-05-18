@@ -48,7 +48,7 @@ Credencial local inicial:
 
 ```text
 usuario: admin
-senha: admin123
+senha: admin2026
 ```
 
 Para ambientes reais, defina `DASH_ADMIN_USER` e `DASH_ADMIN_PASSWORD` antes da primeira inicializacao do banco.
@@ -88,6 +88,7 @@ Tambem importa a tabela `Tabela328` da aba `AFASTADOS`.
 ## Funcionalidades profissionais iniciadas
 
 - Login com sessao HTTP-only.
+- Perfil unico inicial: `admin`.
 - Banco SQLite local ignorado pelo Git.
 - Endpoint autenticado para importar o Excel atual.
 - Historico das importacoes com status, totais e hash do arquivo.
