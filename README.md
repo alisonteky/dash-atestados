@@ -22,6 +22,37 @@ npm run dev
 http://localhost:4173
 ```
 
+## Como rodar a aplicacao profissional local
+
+O backend inicial usa Python + SQLite, sem dependencias externas. Ele adiciona autenticacao, banco de dados e historico de importacoes.
+
+1. Inicializar o banco:
+
+```powershell
+npm run init-db
+```
+
+2. Subir a aplicacao com backend:
+
+```powershell
+npm run server
+```
+
+3. Abrir no navegador:
+
+```text
+http://127.0.0.1:8000
+```
+
+Credencial local inicial:
+
+```text
+usuario: admin
+senha: admin123
+```
+
+Para ambientes reais, defina `DASH_ADMIN_USER` e `DASH_ADMIN_PASSWORD` antes da primeira inicializacao do banco.
+
 ## Publicacao demonstrativa
 
 Para evitar exposicao de dados sensiveis, o arquivo real `public/data/dashboard-data.json` fica ignorado no Git. Para apresentacoes publicas, gere a base demonstrativa:
@@ -35,6 +66,7 @@ O workflow de GitHub Pages publica `public/` usando `public/data/dashboard-data.
 ## Estrutura
 
 - `scripts/import_excel.py`: leitor OOXML do arquivo `.xlsx`, sem bibliotecas externas.
+- `server/app.py`: backend HTTP com SQLite, sessao autenticada e historico de importacoes.
 - `public/data/dashboard-data.json`: base normalizada consumida pelo dashboard.
 - `public/index.html`: aplicacao web.
 - `public/app.js`: filtros, agregacoes, tabelas e graficos.
@@ -53,10 +85,18 @@ O importador confere a tabela principal `Tabela324` contra a linha total do Exce
 
 Tambem importa a tabela `Tabela328` da aba `AFASTADOS`.
 
+## Funcionalidades profissionais iniciadas
+
+- Login com sessao HTTP-only.
+- Banco SQLite local ignorado pelo Git.
+- Endpoint autenticado para importar o Excel atual.
+- Historico das importacoes com status, totais e hash do arquivo.
+- Dashboard usando API autenticada quando o backend esta ativo e JSON demonstrativo quando publicado estaticamente.
+
 ## Proximo ciclo recomendado
 
-- Criar banco PostgreSQL.
-- Transformar o importador em endpoint autenticado.
-- Adicionar login e perfis de acesso.
-- Salvar historico de importacoes.
+- Trocar SQLite por PostgreSQL quando houver ambiente servidor definido.
+- Criar perfis de acesso por area e nivel de permissao.
+- Adicionar upload seguro de novos arquivos Excel pela interface.
 - Normalizar cadastro de colaboradores, medicos e capitulos CID.
+- Adicionar logs de auditoria por visualizacao, importacao e exportacao.

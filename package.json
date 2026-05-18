@@ -7,6 +7,8 @@
     "import": "python scripts/import_excel.py",
     "demo": "python scripts/anonymize_data.py",
     "check": "python scripts/import_excel.py --check",
-    "dev": "python -m http.server 4173 --directory public"
+    "dev": "python -m http.server 4173 --directory public",
+    "server": "python server/app.py",
+    "init-db": "python server/app.py --init-db"
   }
 }

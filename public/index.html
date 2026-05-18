@@ -13,7 +13,12 @@
         <h1>Atestados e Afastados</h1>
       </div>
       <div class="header-meta">
+        <span class="mode-pill" id="appMode">Modo demonstrativo</span>
         <span id="sourceStatus">Carregando dados...</span>
+        <button class="ghost-button" id="loginButton" type="button" hidden>Entrar</button>
+        <button class="ghost-button" id="importButton" type="button" hidden>Importar Excel</button>
+        <button class="ghost-button" id="historyButton" type="button" hidden>Histórico</button>
+        <button class="ghost-button" id="logoutButton" type="button" hidden>Sair</button>
         <button class="ghost-button" id="reloadButton" type="button">Atualizar</button>
       </div>
     </header>
@@ -125,7 +130,12 @@
         <section class="panel table-panel">
           <div class="panel-heading">
             <h2>Base De Afastados</h2>
-            <button class="ghost-button" id="exportAwayCsv" type="button">Exportar CSV</button>
+            <div class="table-actions">
+              <span id="awayPageInfo"></span>
+              <button class="ghost-button" id="awayPrev" type="button">Anterior</button>
+              <button class="ghost-button" id="awayNext" type="button">Próxima</button>
+              <button class="ghost-button" id="exportAwayCsv" type="button">Exportar CSV</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -154,6 +164,9 @@
             <h2>Base De Atestados</h2>
             <div class="table-actions">
               <span id="recordCount"></span>
+              <span id="recordPageInfo"></span>
+              <button class="ghost-button" id="recordPrev" type="button">Anterior</button>
+              <button class="ghost-button" id="recordNext" type="button">Próxima</button>
               <button class="ghost-button" id="exportCsv" type="button">Exportar CSV</button>
             </div>
           </div>
@@ -205,6 +218,35 @@
         </div>
       </section>
     </main>
+
+    <div class="modal-backdrop hidden" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <form class="modal-card" id="loginForm">
+        <div class="modal-heading">
+          <h2 id="authTitle">Acesso Profissional</h2>
+          <button class="icon-button" id="closeAuthModal" type="button" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <label>
+          Usuário
+          <input id="loginUsername" name="username" autocomplete="username" required />
+        </label>
+        <label>
+          Senha
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <p class="form-message" id="authMessage"></p>
+        <button class="primary-button" type="submit">Entrar</button>
+      </form>
+    </div>
+
+    <div class="modal-backdrop hidden" id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+      <section class="modal-card modal-wide">
+        <div class="modal-heading">
+          <h2 id="historyTitle">Histórico De Importações</h2>
+          <button class="icon-button" id="closeHistoryModal" type="button" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <div class="history-list" id="importHistory"></div>
+      </section>
+    </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="./app.js"></script>

@@ -1,4 +1,13 @@
 const DATA_URL = "./data/dashboard-data.json";
+const API = {
+  health: "/api/health",
+  me: "/api/auth/me",
+  login: "/api/auth/login",
+  logout: "/api/auth/logout",
+  dashboard: "/api/dashboard",
+  imports: "/api/imports",
+};
+const PAGE_SIZE = 100;
 const MONTHS = [
   "Janeiro",
   "Fevereiro",
@@ -17,6 +26,11 @@ const MONTHS = [
 const state = {
   data: null,
   activeTab: "geral",
+  backend: {
+    available: false,
+    authenticated: false,
+    user: null,
+  },
   filters: {
     year: "",
     month: "",
@@ -24,19 +38,29 @@ const state = {
     chapa: "",
     query: "",
   },
+  pagination: {
+    atestadosPage: 1,
+    afastadosPage: 1,
+  },
 };
 
 const elements = {};
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   cacheElements();
   bindEvents();
+  await detectBackend();
   loadData();
 });
 
 function cacheElements() {
   [
     "sourceStatus",
+    "appMode",
+    "loginButton",
+    "logoutButton",
+    "importButton",
+    "historyButton",
     "reloadButton",
     "filterYear",
     "filterMonth",
@@ -56,13 +80,28 @@ function cacheElements() {
     "awayEmployeeList",
     "awayCidList",
     "awayTable",
+    "awayPageInfo",
+    "awayPrev",
+    "awayNext",
     "recordCount",
+    "recordPageInfo",
+    "recordPrev",
+    "recordNext",
     "recordsTable",
     "exportCsv",
     "exportAwayCsv",
     "validationPanel",
     "sourcePanel",
     "cidQualityPanel",
+    "authModal",
+    "loginForm",
+    "loginUsername",
+    "loginPassword",
+    "authMessage",
+    "closeAuthModal",
+    "historyModal",
+    "importHistory",
+    "closeHistoryModal",
     "toast",
   ].forEach((id) => {
     elements[id] = document.getElementById(id);
@@ -74,6 +113,17 @@ function bindEvents() {
   elements.clearFilters.addEventListener("click", clearFilters);
   elements.exportCsv.addEventListener("click", () => exportCsv(filteredAtestados(), "atestados-filtrados.csv"));
   elements.exportAwayCsv.addEventListener("click", () => exportCsv(filteredAfastados(), "afastados-filtrados.csv"));
+  elements.loginButton.addEventListener("click", () => openAuthModal());
+  elements.logoutButton.addEventListener("click", logout);
+  elements.importButton.addEventListener("click", importExcel);
+  elements.historyButton.addEventListener("click", openHistoryModal);
+  elements.loginForm.addEventListener("submit", login);
+  elements.closeAuthModal.addEventListener("click", closeAuthModal);
+  elements.closeHistoryModal.addEventListener("click", closeHistoryModal);
+  elements.recordPrev.addEventListener("click", () => changePage("atestadosPage", -1));
+  elements.recordNext.addEventListener("click", () => changePage("atestadosPage", 1));
+  elements.awayPrev.addEventListener("click", () => changePage("afastadosPage", -1));
+  elements.awayNext.addEventListener("click", () => changePage("afastadosPage", 1));
 
   [
     ["filterYear", "year"],
@@ -83,12 +133,14 @@ function bindEvents() {
   ].forEach(([id, key]) => {
     elements[id].addEventListener("change", (event) => {
       state.filters[key] = event.target.value;
+      resetPagination();
       render();
     });
   });
 
   elements.searchInput.addEventListener("input", (event) => {
     state.filters.query = event.target.value.trim().toLowerCase();
+    resetPagination();
     render();
   });
 
@@ -103,14 +155,74 @@ function bindEvents() {
   });
 }
 
+async function detectBackend() {
+  try {
+    const response = await fetch(API.health, { cache: "no-store" });
+    if (!response.ok) {
+      updateBackendUi();
+      return;
+    }
+    state.backend.available = true;
+    await refreshSession();
+  } catch {
+    state.backend.available = false;
+    state.backend.authenticated = false;
+    state.backend.user = null;
+  }
+  updateBackendUi();
+}
+
+async function refreshSession() {
+  if (!state.backend.available) {
+    return false;
+  }
+  const response = await fetch(API.me, { credentials: "same-origin", cache: "no-store" });
+  if (response.ok) {
+    const payload = await response.json();
+    state.backend.authenticated = true;
+    state.backend.user = payload.user;
+    return true;
+  }
+  state.backend.authenticated = false;
+  state.backend.user = null;
+  return false;
+}
+
+function updateBackendUi() {
+  const isBackend = state.backend.available;
+  const isLogged = state.backend.authenticated;
+  elements.appMode.textContent = isBackend ? "Banco conectado" : "Modo demonstrativo";
+  elements.loginButton.hidden = !isBackend || isLogged;
+  elements.logoutButton.hidden = !isBackend || !isLogged;
+  elements.importButton.hidden = !isBackend || !isLogged;
+  elements.historyButton.hidden = !isBackend || !isLogged;
+  if (isBackend && isLogged && state.backend.user) {
+    elements.appMode.textContent = `Banco conectado · ${state.backend.user.username}`;
+  }
+}
+
 async function loadData() {
   try {
     elements.sourceStatus.textContent = "Carregando dados...";
-    const response = await fetch(`${DATA_URL}?v=${Date.now()}`);
+    const response = await fetchDataSource();
     if (!response.ok) {
+      if (state.backend.available && response.status === 401) {
+        await refreshSession();
+        updateBackendUi();
+        clearDashboard("Entre para acessar os dados reais.");
+        openAuthModal("Entre para acessar o banco de dados.");
+        return;
+      }
+      if (state.backend.available && response.status === 404) {
+        clearDashboard("Nenhuma importação encontrada no banco.");
+        elements.sourceStatus.textContent = "Sem importação no banco";
+        showToast("Importe o Excel para carregar o banco");
+        return;
+      }
       throw new Error(`HTTP ${response.status}`);
     }
     state.data = await response.json();
+    resetPagination();
     populateFilters();
     render();
     showToast("Dados carregados");
@@ -118,6 +230,161 @@ async function loadData() {
     elements.sourceStatus.textContent = "Falha ao carregar dados";
     showToast("Nao foi possivel carregar o JSON");
     console.error(error);
+  }
+}
+
+function fetchDataSource() {
+  if (state.backend.available) {
+    return fetch(API.dashboard, { credentials: "same-origin", cache: "no-store" });
+  }
+  return fetch(`${DATA_URL}?v=${Date.now()}`);
+}
+
+function clearDashboard(message) {
+  state.data = null;
+  elements.generalKpis.innerHTML = "";
+  elements.monthSummary.textContent = "";
+  [
+    "monthChart",
+    "functionChart",
+    "employeeList",
+    "cidList",
+    "doctorList",
+    "awayKpis",
+    "awayMonthChart",
+    "awayEmployeeList",
+    "awayCidList",
+    "awayTable",
+    "recordsTable",
+    "validationPanel",
+    "sourcePanel",
+    "cidQualityPanel",
+  ].forEach((id) => {
+    elements[id].innerHTML = emptyState(message);
+  });
+  elements.recordCount.textContent = "";
+  elements.recordPageInfo.textContent = "";
+  elements.awayPageInfo.textContent = "";
+}
+
+function openAuthModal(message = "") {
+  elements.authMessage.textContent = message;
+  elements.authModal.classList.remove("hidden");
+  window.setTimeout(() => elements.loginUsername.focus(), 0);
+}
+
+function closeAuthModal() {
+  elements.authModal.classList.add("hidden");
+  elements.authMessage.textContent = "";
+}
+
+async function login(event) {
+  event.preventDefault();
+  elements.authMessage.textContent = "";
+  const payload = {
+    username: elements.loginUsername.value.trim(),
+    password: elements.loginPassword.value,
+  };
+  const response = await fetch(API.login, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const error = await readError(response);
+    elements.authMessage.textContent = error || "Não foi possível entrar.";
+    return;
+  }
+  await refreshSession();
+  updateBackendUi();
+  closeAuthModal();
+  elements.loginPassword.value = "";
+  await loadData();
+}
+
+async function logout() {
+  await fetch(API.logout, { method: "POST", credentials: "same-origin" });
+  state.backend.authenticated = false;
+  state.backend.user = null;
+  updateBackendUi();
+  clearDashboard("Sessão encerrada.");
+  openAuthModal("Sessão encerrada.");
+}
+
+async function importExcel() {
+  if (!state.backend.authenticated) {
+    openAuthModal("Entre para importar o Excel.");
+    return;
+  }
+  const originalText = elements.importButton.textContent;
+  elements.importButton.disabled = true;
+  elements.importButton.textContent = "Importando...";
+  try {
+    const response = await fetch(API.imports, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    showToast("Importação concluída");
+    await loadData();
+  } catch (error) {
+    showToast(error.message || "Falha na importação");
+  } finally {
+    elements.importButton.disabled = false;
+    elements.importButton.textContent = originalText;
+  }
+}
+
+async function openHistoryModal() {
+  elements.historyModal.classList.remove("hidden");
+  elements.importHistory.innerHTML = emptyState("Carregando histórico...");
+  const response = await fetch(API.imports, { credentials: "same-origin", cache: "no-store" });
+  if (!response.ok) {
+    elements.importHistory.innerHTML = emptyState(await readError(response));
+    return;
+  }
+  const payload = await response.json();
+  renderHistory(payload.imports || []);
+}
+
+function closeHistoryModal() {
+  elements.historyModal.classList.add("hidden");
+}
+
+function renderHistory(imports) {
+  if (!imports.length) {
+    elements.importHistory.innerHTML = emptyState("Nenhuma importação registrada.");
+    return;
+  }
+  elements.importHistory.innerHTML = imports.map((item) => `
+    <article class="history-item">
+      <div>
+        <strong>${escapeHtml(item.sourceName || item.sourceFile)}</strong>
+        <span class="badge ${item.status === "ok" ? "status-ok" : "status-attention"}">${escapeHtml(item.status.toUpperCase())}</span>
+      </div>
+      <div class="history-meta">
+        <span>${formatDateTime(item.finishedAt)}</span>
+        <span>${formatNumber(item.recordsAtestados)} atestados</span>
+        <span>${formatNumber(item.recordsAfastados)} afastados</span>
+        <span>${formatNumber(item.totalDias)} dias</span>
+        <span>${formatNumber(item.totalAtestados)} atestados válidos</span>
+      </div>
+      ${item.errorMessage ? `<p class="form-message">${escapeHtml(item.errorMessage)}</p>` : ""}
+    </article>
+  `).join("");
+}
+
+async function readError(response) {
+  try {
+    const payload = await response.json();
+    return payload.error || `HTTP ${response.status}`;
+  } catch {
+    return `HTTP ${response.status}`;
   }
 }
 
@@ -143,6 +410,7 @@ function setOptions(select, values, allLabel) {
 
 function clearFilters() {
   state.filters = { year: "", month: "", function: "", chapa: "", query: "" };
+  resetPagination();
   elements.filterYear.value = "";
   elements.filterMonth.value = "";
   elements.filterFunction.value = "";
@@ -252,9 +520,12 @@ function renderAway() {
 
 function renderRecords() {
   const records = filteredAtestados();
+  const page = paginate(records, "atestadosPage");
   elements.recordCount.textContent = `${formatNumber(records.length)} registros`;
-  const visible = records.slice(0, 250);
-  elements.recordsTable.innerHTML = visible.map((record) => `
+  elements.recordPageInfo.textContent = pageLabel(page);
+  elements.recordPrev.disabled = page.current <= 1;
+  elements.recordNext.disabled = page.current >= page.totalPages;
+  elements.recordsTable.innerHTML = page.visible.map((record) => `
     <tr>
       <td>${escapeHtml(record.chapa)}</td>
       <td>${escapeHtml(record.nome)}</td>
@@ -274,7 +545,11 @@ function renderRecords() {
 }
 
 function renderAwayTable(records) {
-  elements.awayTable.innerHTML = records.slice(0, 250).map((record) => `
+  const page = paginate(records, "afastadosPage");
+  elements.awayPageInfo.textContent = pageLabel(page);
+  elements.awayPrev.disabled = page.current <= 1;
+  elements.awayNext.disabled = page.current >= page.totalPages;
+  elements.awayTable.innerHTML = page.visible.map((record) => `
     <tr>
       <td>${escapeHtml(record.colaborador)}</td>
       <td>${escapeHtml(record.chapa)}</td>
@@ -287,6 +562,39 @@ function renderAwayTable(records) {
       <td>${escapeHtml(record.subcategoriaCid)}</td>
     </tr>
   `).join("");
+}
+
+function paginate(records, pageKey) {
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
+  const current = Math.min(Math.max(state.pagination[pageKey], 1), totalPages);
+  state.pagination[pageKey] = current;
+  const start = (current - 1) * PAGE_SIZE;
+  const end = Math.min(start + PAGE_SIZE, records.length);
+  return {
+    current,
+    totalPages,
+    start,
+    end,
+    total: records.length,
+    visible: records.slice(start, end),
+  };
+}
+
+function pageLabel(page) {
+  if (!page.total) {
+    return "0 de 0";
+  }
+  return `${formatNumber(page.start + 1)}-${formatNumber(page.end)} de ${formatNumber(page.total)}`;
+}
+
+function changePage(pageKey, delta) {
+  state.pagination[pageKey] += delta;
+  render();
+}
+
+function resetPagination() {
+  state.pagination.atestadosPage = 1;
+  state.pagination.afastadosPage = 1;
 }
 
 function renderQuality() {
@@ -430,8 +738,8 @@ function qualityRow(label, value) {
   return `<div class="quality-row"><span>${label}</span><span class="rank-value">${value}</span></div>`;
 }
 
-function emptyState() {
-  return `<p class="empty-state">Sem dados para os filtros atuais.</p>`;
+function emptyState(message = "Sem dados para os filtros atuais.") {
+  return `<p class="empty-state">${escapeHtml(message)}</p>`;
 }
 
 function sum(records, key) {

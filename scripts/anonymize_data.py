@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_INPUT = ROOT / "public" / "data" / "dashboard-data.json"
 DEFAULT_OUTPUT = ROOT / "public" / "data" / "dashboard-data.demo.json"
+
+sys.path.insert(0, str(ROOT))
+from scripts.import_excel import away_aggregates, main_aggregates, unique_sorted  # noqa: E402
 
 
 FIRST_NAMES = [
@@ -115,9 +119,21 @@ def anonymize(payload: dict[str, Any]) -> dict[str, Any]:
         record["colaborador"] = mapped_person(record["colaborador"], chapa)
         record["medico"] = mapped_doctor(record["medico"])
 
-    # Recompute option lists that expose names or original identifiers.
-    result["options"]["chapas"] = sorted(set(chapa_map.values()))
-    result["options"]["medicos"] = sorted(set(doctor_map.values()))
+    main_records = result["records"]["atestados"]
+    away_records = result["records"]["afastados"]
+
+    result["options"] = {
+        "anos": sorted({record["ano"] for record in main_records if record["ano"]}),
+        "meses": unique_sorted(main_records + away_records, "mes"),
+        "funcoes": unique_sorted(main_records + away_records, "funcao"),
+        "chapas": sorted({record["chapa"] for record in main_records + away_records if record["chapa"]}, key=str),
+        "medicos": unique_sorted(main_records + away_records, "medico"),
+        "capitulosCid": unique_sorted(main_records + away_records, "capituloCid"),
+    }
+    result["aggregates"] = {
+        "atestados": main_aggregates(main_records),
+        "afastados": away_aggregates(away_records),
+    }
     result["metadata"]["sourceFile"] = "dados-anonimizados-para-demonstracao"
     result["metadata"]["anonymized"] = True
     result["metadata"]["anonymizationNote"] = (

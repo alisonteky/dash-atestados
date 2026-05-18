@@ -1,7 +1,7 @@
 {
   "metadata": {
     "sourceFile": "dados-anonimizados-para-demonstracao",
-    "generatedAt": "2026-05-18T08:00:58-03:00",
+    "generatedAt": "2026-05-18T10:09:34-03:00",
     "schemaVersion": 1,
     "anonymized": true,
     "anonymizationNote": "Nomes, chapas e medicos foram substituidos por valores ficticios. Totais, datas, funcoes e CID foram preservados para validacao visual."
@@ -394,206 +394,174 @@
       ],
       "topColaboradores": [
         {
-          "label": "Benedito Rodolfo Da Silva — 224",
+          "label": "Colaborador Eduardo Campos - CH0044",
           "registros": 30,
           "dias": 108,
           "atestados": 26
         },
         {
-          "label": "Julio Henrique A. O. Branco — 328",
+          "label": "Colaborador Rafael Campos - CH0055",
           "registros": 34,
           "dias": 55,
           "atestados": 33
         },
         {
-          "label": "Benedito Flavio Da Silva — 59",
+          "label": "Colaborador Marco Almeida - CH0011",
           "registros": 10,
           "dias": 52,
           "atestados": 9
         },
         {
-          "label": "Moacir Pinheiro De Oliveira — 63",
+          "label": "Colaborador Nicolas Almeida - CH0012",
           "registros": 19,
           "dias": 51,
           "atestados": 18
         },
         {
-          "label": "Ronaldo De Oliveira Campos — 460",
+          "label": "Colaborador Otavio Duarte - CH0073",
           "registros": 20,
           "dias": 40,
           "atestados": 18
         },
         {
-          "label": "Adriano Furtado Donizetti — 410",
+          "label": "Colaborador Hugo Duarte - CH0067",
           "registros": 9,
           "dias": 36,
           "atestados": 9
         },
         {
-          "label": "Irrenir Jose De Araujo — 757",
+          "label": "Colaborador Joao Ferreira - CH0108",
           "registros": 8,
           "dias": 33,
           "atestados": 7
         },
         {
-          "label": "Marcelo Inacio Nunes — 885",
+          "label": "Colaborador Nicolas Gomes - CH0130",
           "registros": 6,
           "dias": 31,
           "atestados": 5
         },
         {
-          "label": "Gersomil De Oliveira — 325",
+          "label": "Colaborador Igor Duarte - CH0068",
           "registros": 3,
           "dias": 29,
           "atestados": 2
         },
         {
-          "label": "Natalino Rodrigues Do Prado — 413",
-          "registros": 3,
-          "dias": 29,
-          "atestados": 2
-        },
-        {
-          "label": "Paulo Roberto Longo De Almeida — 941",
+          "label": "Colaborador Joao Henrique - CH0147",
           "registros": 16,
           "dias": 29,
           "atestados": 16
         },
         {
-          "label": "Heverton Valerio Da Silva — 951",
+          "label": "Colaborador Paulo Campos - CH0054",
+          "registros": 3,
+          "dias": 29,
+          "atestados": 2
+        },
+        {
+          "label": "Colaborador Otavio Henrique - CH0151",
           "registros": 12,
           "dias": 28,
           "atestados": 12
         },
         {
-          "label": "Carlos Eduardo De Sousa Moreira — 891",
+          "label": "Colaborador Rafael Gomes - CH0133",
           "registros": 10,
           "dias": 27,
           "atestados": 10
         },
         {
-          "label": "Adilson Carlos De Brito Lisboa — 466",
+          "label": "Colaborador Rafael Duarte - CH0075",
           "registros": 14,
           "dias": 26,
           "atestados": 13
         },
         {
-          "label": "Antonio Lopes Dias — 464",
+          "label": "Colaborador Paulo Duarte - CH0074",
           "registros": 10,
           "dias": 25,
           "atestados": 10
         },
         {
-          "label": "Cristiano Bulhões Pereira Da Silva — 959",
+          "label": "Colaborador Tiago Henrique - CH0154",
           "registros": 10,
           "dias": 25,
           "atestados": 8
         },
         {
-          "label": "Altamiro Quirino Da Silva — 368",
+          "label": "Colaborador Alex Duarte - CH0060",
           "registros": 5,
           "dias": 24,
           "atestados": 4
         },
         {
-          "label": "Jovelino Rodella Filho — 15",
+          "label": "Colaborador Daniel Almeida - CH0004",
           "registros": 7,
           "dias": 23,
           "atestados": 7
         },
         {
-          "label": "Wendel Antonio Maria Orfano — 945",
+          "label": "Colaborador Marco Henrique - CH0149",
           "registros": 21,
           "dias": 23,
           "atestados": 21
         },
         {
-          "label": "José Sidario Viana — 409",
-          "registros": 5,
+          "label": "Colaborador Daniel Duarte - CH0063",
+          "registros": 13,
           "dias": 22,
-          "atestados": 5
+          "atestados": 13
         }
       ],
       "topMedicos": [
         {
-          "label": "Dr Wanderson Da Silva Barbosa",
-          "valor": 66
+          "label": "Dr. Ivan Clinico",
+          "valor": 139
         },
         {
-          "label": "Dr Arony Teuri Ramirez Sarmiento",
-          "valor": 60
+          "label": "Dra. Carla Clinica",
+          "valor": 120
         },
         {
-          "label": "Dr Gerson Vilela Alves",
-          "valor": 23
+          "label": "Dra. Laura Clinica",
+          "valor": 86
         },
         {
-          "label": "Dr Jair Henrique De Sousa Santana",
-          "valor": 23
+          "label": "Dr. Marcos Clinico",
+          "valor": 80
         },
         {
-          "label": "Dr Paulo Giovani Azevedo E Silva",
-          "valor": 23
+          "label": "Dra. Elisa Clinica",
+          "valor": 65
         },
         {
-          "label": "Dr Aline Carvalho Gobi",
-          "valor": 21
+          "label": "Dra. Natalia Clinica",
+          "valor": 61
         },
         {
-          "label": "Dr Carina Tamy Sugai",
-          "valor": 21
+          "label": "Dr. Pedro Clinico",
+          "valor": 59
         },
         {
-          "label": "Dr Tauana Brogio Leão",
-          "valor": 19
+          "label": "Dr. Fabio Clinico",
+          "valor": 58
         },
         {
-          "label": "Dr Thais Ricardo Cordeiro",
-          "valor": 17
+          "label": "Dra. Helena Clinica",
+          "valor": 56
         },
         {
-          "label": "Dr Renan Pedrote Torres",
-          "valor": 12
+          "label": "Dr. Daniel Clinico",
+          "valor": 52
         },
         {
-          "label": "Dr Ivan De Jesus Paez Veja",
-          "valor": 10
+          "label": "Dra. Ana Clinica",
+          "valor": 51
         },
         {
-          "label": "Dr André Luiz Schutzenberger Torres",
-          "valor": 9
-        },
-        {
-          "label": "Dr Laisa Rafaela A. Santos",
-          "valor": 9
-        },
-        {
-          "label": "Dr Ernesto S. Teshima",
-          "valor": 8
-        },
-        {
-          "label": "Dr Ana Paula Da Silva Santos",
-          "valor": 8
-        },
-        {
-          "label": "Dr Sergio Pedro Lapinha",
-          "valor": 8
-        },
-        {
-          "label": "Dr Caio R. Ebram De Miranda",
-          "valor": 8
-        },
-        {
-          "label": "Dr Aline Do Lago",
-          "valor": 8
-        },
-        {
-          "label": "Dr Marcela Pereira De Toledo",
-          "valor": 7
-        },
-        {
-          "label": "Dr Rima Jbili",
-          "valor": 7
+          "label": "Dr. Bruno Clinico",
+          "valor": 50
         }
       ],
       "topCapitulosCid": [
@@ -846,7 +814,7 @@
       "dias": 918,
       "chapasUnicas": 10,
       "colaboradoresUnicos": 10,
-      "medicosUnicos": 10,
+      "medicosUnicos": 8,
       "porMes": [
         {
           "label": "Janeiro",
@@ -918,95 +886,87 @@
       ],
       "topColaboradores": [
         {
-          "label": "Gersomil De Oliveira — 325",
+          "label": "Colaborador Paulo Campos - CH0054",
           "registros": 9,
           "valor": 271.0
         },
         {
-          "label": "Altamiro Quirino da Silva — 368",
+          "label": "Colaborador Tiago Lima - CH0060",
           "registros": 2,
           "valor": 180.0
         },
         {
-          "label": "Mauricio de Souza Oliveira — 889",
+          "label": "Colaborador William Lima - CH0132",
           "registros": 2,
           "valor": 120.0
         },
         {
-          "label": "José Claudinei Pinto — 109",
+          "label": "Colaborador Caio Barros - CH0022",
           "registros": 1,
           "valor": 90.0
         },
         {
-          "label": "Julio Henrique A. O. Branco — 328",
+          "label": "Colaborador Rafael Campos - CH0055",
           "registros": 1,
           "valor": 77.0
         },
         {
-          "label": "Wanderlei Luiz Da Silva — 369",
+          "label": "Colaborador Bruno Duarte - CH0061",
           "registros": 1,
           "valor": 60.0
         },
         {
-          "label": "Natalino Rodrigues Prado — 413",
+          "label": "Colaborador Victor Lima - CH0068",
           "registros": 1,
           "valor": 45.0
         },
         {
-          "label": "Benedito Flávio da Silva  — 59",
+          "label": "Colaborador Nicolas Gomes - CH0130",
           "registros": 1,
           "valor": 30.0
         },
         {
-          "label": "Marcelo Inacio Nunes — 885",
+          "label": "Colaborador Sergio Lima - CH0011",
           "registros": 1,
           "valor": 30.0
         },
         {
-          "label": "Adriano Furtado Donizetti — 410",
+          "label": "Colaborador Hugo Duarte - CH0067",
           "registros": 1,
           "valor": 15.0
         }
       ],
       "topMedicos": [
         {
-          "label": "DR. Adauto Luiz Pedro",
+          "label": "Dra. Helena Clinica",
           "valor": 9
         },
         {
-          "label": "DR. Sergio Pedro Lapinha",
+          "label": "Dra. Laura Clinica",
           "valor": 2
         },
         {
-          "label": "DR. Tiago de Oliveira Camilo",
+          "label": "Dr. Ivan Clinico",
           "valor": 2
         },
         {
-          "label": "DR. Andreia Rodrigues a Pizzi",
+          "label": "Dr. Marcos Clinico",
+          "valor": 2
+        },
+        {
+          "label": "Dr. Pedro Clinico",
+          "valor": 2
+        },
+        {
+          "label": "Dra. Elisa Clinica",
           "valor": 1
         },
         {
-          "label": "DR. Roque P. Schumann",
+          "label": "Dr. Fabio Clinico",
           "valor": 1
         },
         {
-          "label": "Dr Bruno Henrique Cabral De Almeida",
-          "valor": 1
-        },
-        {
-          "label": "DR Fernando Augusto Carneiro Pinto",
-          "valor": 1
-        },
-        {
-          "label": "Dr Luis Augusto Lapinha",
-          "valor": 1
-        },
-        {
-          "label": "DR. Rodrigo Michels",
-          "valor": 1
-        },
-        {
-          "label": "DR. Marcio Leite Fontana",
+          "label": "Dra. Natalia Clinica",
           "valor": 1
         }
       ],

@@ -91,7 +91,16 @@ main {
   font-size: 0.86rem;
 }
 
+.mode-pill {
+  background: var(--green-weak);
+  border-radius: 999px;
+  color: var(--green) !important;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
 .ghost-button,
+.primary-button,
 .icon-button,
 .tab {
   background: var(--surface);
@@ -105,6 +114,18 @@ main {
 
 .ghost-button {
   padding: 0 14px;
+}
+
+.primary-button {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  min-height: 42px;
+  padding: 0 16px;
+}
+
+.primary-button:hover {
+  background: #0f6d58;
 }
 
 .icon-button {
@@ -443,6 +464,87 @@ td {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(17, 24, 18, 0.46);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 30;
+}
+
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+  max-height: min(720px, calc(100vh - 36px));
+  max-width: 420px;
+  overflow: auto;
+  padding: 18px;
+  width: 100%;
+}
+
+.modal-wide {
+  max-width: 860px;
+}
+
+.modal-heading {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.modal-heading .icon-button {
+  align-self: auto;
+}
+
+.form-message {
+  color: var(--wine);
+  font-size: 0.86rem;
+  min-height: 20px;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-item {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.history-item strong {
+  display: block;
+}
+
+.history-meta {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 8px 14px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 @media (max-width: 1180px) {
