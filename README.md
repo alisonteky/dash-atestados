@@ -13,7 +13,7 @@ npm run import
 Por padrão, o importador lê duas planilhas na pasta `mvp`:
 
 - `ATESTADOS OPERAÇÃO 2026 cópia.xlsx`: base de motoristas, cobradores e afastados.
-- `Planilha Monitoramento dos Atestados Médicos .xlsx`: base geral de funcionários.
+- `Planilha Monitoramento dos Atestados Médicos .xlsx`: base geral de funcionários, limitada ao histórico de 2025 e 2026.
 
 2. Subir o dashboard local:
 
@@ -90,7 +90,7 @@ O importador confere a tabela principal `Tabela324` contra a linha total do Exce
 
 Tambem importa a tabela `Tabela328` da aba `AFASTADOS`.
 
-A planilha geral de funcionários não possui tabelas formais do Excel; ela é lida por abas mensais. Cada linha recebe `origem = Empresa`, e a visão `Consolidado` remove sobreposições por `chapa + dataInicial + dataFinal`, preservando o registro da Operação quando há conflito.
+A planilha geral de funcionários não possui tabelas formais do Excel; ela é lida por abas mensais de 2025 e 2026. Cada linha recebe `origem = Empresa`, e a visão `Consolidado` remove sobreposições por `chapa + dataInicial + dataFinal`, preservando o registro da Operação quando há conflito.
 
 ## Funcionalidades profissionais iniciadas
 

@@ -30,9 +30,9 @@ Campos adicionados pelo importador:
 | afastamentoInss | texto | Vazio nesta fonte. |
 | tipoDuracao | texto | `dias`. |
 
-## Fonte: `Planilha Monitoramento dos Atestados Médicos .xlsx` / abas mensais
+## Fonte: `Planilha Monitoramento dos Atestados Médicos .xlsx` / abas mensais de 2025 e 2026
 
-Esta fonte nao possui tabelas formais do Excel. O importador identifica as abas mensais pelo cabecalho na linha 2.
+Esta fonte nao possui tabelas formais do Excel. O importador identifica as abas mensais pelo cabecalho na linha 2 e importa somente o historico de 2025 e 2026. O ano/mes usado nos filtros da Empresa vem da aba mensal, para evitar que datas digitadas incorretamente no historico poluam os indicadores.
 
 | Campo original | Campo JSON | Tipo | Regra |
 | --- | --- | --- | --- |

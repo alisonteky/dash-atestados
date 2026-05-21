@@ -68,8 +68,9 @@ MONTH_ALIASES = {
     "DEZEMBRO": 12,
 }
 
-MIN_COMPANY_YEAR = 2022
-MAX_COMPANY_YEAR = 2027
+MIN_COMPANY_YEAR = 2025
+MAX_COMPANY_YEAR = 2026
+COMPANY_IMPORT_YEARS = {2025, 2026}
 
 SOURCE_OPERATION = "operacao"
 SOURCE_COMPANY = "empresa"
@@ -444,12 +445,7 @@ def normalize_company_record(sheet_name: str, sheet_reference: dt.date, row_num:
     received = excel_date(cells.get(cell_addr(1, row_num)))
     start, end, periodo = parse_period_dates(cells.get(cell_addr(5, row_num)))
     total, duration_type, duration_raw = duration_value(cells.get(cell_addr(6, row_num)))
-    reference_date = (
-        received if valid_company_date(received)
-        else start if valid_company_date(start)
-        else end if valid_company_date(end)
-        else sheet_reference
-    )
+    reference_date = sheet_reference
     cid_text = text_value(cells.get(cell_addr(10, row_num)))
 
     return {
@@ -551,6 +547,16 @@ def parse_company_records(source: Path) -> tuple[list[dict[str, Any]], list[dict
                 continue
 
             sheet_reference = sheet_month_year(sheet_name, sheet_reference)
+            if sheet_reference.year not in COMPANY_IMPORT_YEARS:
+                sheet_summaries.append({
+                    "sheet": sheet_name,
+                    "records": 0,
+                    "imported": False,
+                    "referenceMonth": sheet_reference.isoformat(),
+                    "reason": "fora_do_recorte_2025_2026",
+                })
+                sheet_reference = add_month(sheet_reference)
+                continue
 
             cells = sheet_cells(zf, sheet_part, shared_strings)
             if "chapa" not in text_value(cells.get("B2")).casefold() or "nome" not in text_value(cells.get("C2")).casefold():
