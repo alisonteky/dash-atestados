@@ -24,6 +24,7 @@ PUBLIC_DIR = ROOT / "public"
 STORAGE_DIR = ROOT / "storage"
 DB_PATH = STORAGE_DIR / "dash-atestados.sqlite3"
 DEFAULT_SOURCE = ROOT.parent / "ATESTADOS OPERAÇÃO 2026 cópia.xlsx"
+DEFAULT_COMPANY_SOURCE = ROOT.parent / "Planilha Monitoramento dos Atestados Médicos .xlsx"
 SESSION_COOKIE = "dash_session"
 SESSION_DAYS = 1
 PASSWORD_ITERATIONS = 260_000
@@ -150,10 +151,12 @@ def get_json_body(handler: SimpleHTTPRequestHandler) -> dict[str, Any]:
 
 
 def row_to_import(row: sqlite3.Row) -> dict[str, Any]:
+    source_files = [source.strip() for source in row["source_file"].split("|") if source.strip()]
+    source_name = " + ".join(Path(source).name for source in source_files) if source_files else Path(row["source_file"]).name
     return {
         "id": row["id"],
         "sourceFile": row["source_file"],
-        "sourceName": Path(row["source_file"]).name,
+        "sourceName": source_name,
         "sourceHash": row["source_hash"],
         "status": row["status"],
         "recordsAtestados": row["records_atestados"],
@@ -266,24 +269,33 @@ class DashHandler(SimpleHTTPRequestHandler):
     def handle_import(self, user: sqlite3.Row) -> None:
         started_at = iso_now()
         source = DEFAULT_SOURCE
+        company_source = DEFAULT_COMPANY_SOURCE
         try:
             body = get_json_body(self)
             if body.get("sourcePath"):
                 source = Path(str(body["sourcePath"])).expanduser().resolve()
+            if body.get("companySourcePath"):
+                company_source = Path(str(body["companySourcePath"])).expanduser().resolve()
             if not source.exists():
                 raise FileNotFoundError(f"Arquivo Excel nao encontrado: {source}")
+            if not company_source.exists():
+                raise FileNotFoundError(f"Planilha geral nao encontrada: {company_source}")
             if source.suffix.lower() != ".xlsx":
-                raise ValueError("O arquivo de importacao precisa ser .xlsx.")
+                raise ValueError("A planilha de operacao precisa ser .xlsx.")
+            if company_source.suffix.lower() != ".xlsx":
+                raise ValueError("A planilha geral precisa ser .xlsx.")
 
-            payload = build_payload(source)
+            payload = build_payload(source, company_source)
             validation = payload["validation"]["atestados"]
+            company_validation = payload["validation"]["funcionarios"]
             status = validation["status"]
-            if status != "ok":
+            if status != "ok" or company_validation["status"] not in {"ok", "nao_importado"}:
                 raise ValueError("A importacao encontrou divergencias de validacao.")
 
             payload["metadata"]["importedBy"] = user["username"]
             payload["metadata"]["importedAt"] = iso_now()
-            source_hash = file_hash(source)
+            source_hash = f"{file_hash(source)}:{file_hash(company_source)}"
+            source_file_label = f"{source} | {company_source}"
             finished_at = iso_now()
 
             with connect() as conn:
@@ -306,13 +318,13 @@ class DashHandler(SimpleHTTPRequestHandler):
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        str(source),
+                        source_file_label,
                         source_hash,
                         "ok",
-                        payload["sourceTables"]["atestados"]["records"],
+                        payload["sourceTables"]["consolidado"]["records"],
                         payload["sourceTables"]["afastados"]["records"],
-                        validation["somaDiasImportada"],
-                        validation["somaAtestadosImportada"],
+                        payload["aggregates"]["consolidado"]["dias"],
+                        payload["aggregates"]["consolidado"]["atestados"],
                         json.dumps(payload["validation"], ensure_ascii=False),
                         json.dumps(payload, ensure_ascii=False),
                         None,
@@ -341,7 +353,7 @@ class DashHandler(SimpleHTTPRequestHandler):
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        str(source),
+                        f"{source} | {company_source}",
                         "",
                         "erro",
                         "{}",

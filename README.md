@@ -10,6 +10,11 @@ Projeto inicial para transformar o arquivo Excel de atestados em um dashboard we
 npm run import
 ```
 
+Por padrão, o importador lê duas planilhas na pasta `mvp`:
+
+- `ATESTADOS OPERAÇÃO 2026 cópia.xlsx`: base de motoristas, cobradores e afastados.
+- `Planilha Monitoramento dos Atestados Médicos .xlsx`: base geral de funcionários.
+
 2. Subir o dashboard local:
 
 ```powershell
@@ -85,12 +90,14 @@ O importador confere a tabela principal `Tabela324` contra a linha total do Exce
 
 Tambem importa a tabela `Tabela328` da aba `AFASTADOS`.
 
+A planilha geral de funcionários não possui tabelas formais do Excel; ela é lida por abas mensais. Cada linha recebe `origem = Empresa`, e a visão `Consolidado` remove sobreposições por `chapa + dataInicial + dataFinal`, preservando o registro da Operação quando há conflito.
+
 ## Funcionalidades profissionais iniciadas
 
 - Login com sessao HTTP-only.
 - Perfil unico inicial: `admin`.
 - Banco SQLite local ignorado pelo Git.
-- Endpoint autenticado para importar o Excel atual.
+- Endpoint autenticado para importar as duas planilhas em lote.
 - Historico das importacoes com status, totais e hash do arquivo.
 - Dashboard usando API autenticada quando o backend esta ativo e JSON demonstrativo quando publicado estaticamente.
 

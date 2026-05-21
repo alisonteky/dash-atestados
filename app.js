@@ -32,6 +32,7 @@ const state = {
     user: null,
   },
   filters: {
+    source: "consolidado",
     year: "",
     month: "",
     function: "",
@@ -62,6 +63,7 @@ function cacheElements() {
     "importButton",
     "historyButton",
     "reloadButton",
+    "filterSource",
     "filterYear",
     "filterMonth",
     "filterFunction",
@@ -126,6 +128,7 @@ function bindEvents() {
   elements.awayNext.addEventListener("click", () => changePage("afastadosPage", 1));
 
   [
+    ["filterSource", "source"],
     ["filterYear", "year"],
     ["filterMonth", "month"],
     ["filterFunction", "function"],
@@ -390,10 +393,24 @@ async function readError(response) {
 
 function populateFilters() {
   const options = state.data.options;
+  setSourceOptions(options.origens || [{ value: "consolidado", label: "Consolidado" }]);
   setOptions(elements.filterYear, options.anos.map(String), "Todos");
   setOptions(elements.filterMonth, options.meses, "Todos");
   setOptions(elements.filterFunction, options.funcoes, "Todas");
   setOptions(elements.filterChapa, options.chapas, "Todas");
+}
+
+function setSourceOptions(values) {
+  const current = state.filters.source || "consolidado";
+  elements.filterSource.innerHTML = "";
+  values.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.value;
+    option.textContent = item.label;
+    elements.filterSource.appendChild(option);
+  });
+  elements.filterSource.value = values.some((item) => item.value === current) ? current : "consolidado";
+  state.filters.source = elements.filterSource.value;
 }
 
 function setOptions(select, values, allLabel) {
@@ -409,8 +426,9 @@ function setOptions(select, values, allLabel) {
 }
 
 function clearFilters() {
-  state.filters = { year: "", month: "", function: "", chapa: "", query: "" };
+  state.filters = { source: "consolidado", year: "", month: "", function: "", chapa: "", query: "" };
   resetPagination();
+  elements.filterSource.value = "consolidado";
   elements.filterYear.value = "";
   elements.filterMonth.value = "";
   elements.filterFunction.value = "";
@@ -433,7 +451,7 @@ function render() {
 }
 
 function filteredAtestados() {
-  const records = state.data.records.atestados;
+  const records = sourceRecords();
   return records.filter((record) => {
     if (state.filters.year && String(record.ano) !== state.filters.year) return false;
     if (state.filters.month && record.mes !== state.filters.month) return false;
@@ -442,6 +460,17 @@ function filteredAtestados() {
     if (state.filters.query && !recordMatches(record, state.filters.query)) return false;
     return true;
   });
+}
+
+function sourceRecords() {
+  const records = state.data.records;
+  if (state.filters.source === "operacao") {
+    return records.atestados || [];
+  }
+  if (state.filters.source === "empresa") {
+    return records.funcionarios || [];
+  }
+  return records.consolidado || records.atestados || [];
 }
 
 function filteredAfastados() {
@@ -527,19 +556,25 @@ function renderRecords() {
   elements.recordNext.disabled = page.current >= page.totalPages;
   elements.recordsTable.innerHTML = page.visible.map((record) => `
     <tr>
+      <td>${escapeHtml(record.origemLabel || record.origem || "")}</td>
       <td>${escapeHtml(record.chapa)}</td>
       <td>${escapeHtml(record.nome)}</td>
       <td>${escapeHtml(record.funcao)}</td>
+      <td>${formatDate(record.dataRecebimento)}</td>
       <td>${escapeHtml(record.periodo)}</td>
       <td>${formatDate(record.dataInicial)}</td>
       <td>${formatDate(record.dataFinal)}</td>
       <td>${formatNumber(record.totalNoMes)}</td>
+      <td>${escapeHtml(record.tipoDuracao || "dias")}</td>
       <td>${record.ano ?? ""}</td>
       <td>${formatNumber(record.atestados)}</td>
       <td>${escapeHtml(record.mes)}</td>
       <td>${escapeHtml(record.medico)}</td>
+      <td>${escapeHtml(record.crmMedico)}</td>
+      <td>${escapeHtml(record.afastamentoInss)}</td>
       <td>${escapeHtml(record.capituloCid)}</td>
       <td>${escapeHtml(record.subcategoriaCid)}</td>
+      <td>${escapeHtml(observationSummary(record))}</td>
     </tr>
   `).join("");
 }
@@ -599,6 +634,8 @@ function resetPagination() {
 
 function renderQuality() {
   const validation = state.data.validation.atestados;
+  const companyValidation = state.data.validation.funcionarios || {};
+  const consolidatedValidation = state.data.validation.consolidado || {};
   const quality = state.data.validation.qualidadeCid;
   const statusClass = validation.status === "ok" ? "status-ok" : "status-attention";
 
@@ -609,11 +646,17 @@ function renderQuality() {
     qualityRow("Atestados", `${formatNumber(validation.somaAtestadosImportada)} / ${formatNumber(validation.somaAtestadosEsperada)}`),
     qualityRow("Linha total", validation.linhaTotalExcel),
     qualityRow("Campos vazios", Object.keys(validation.camposObrigatoriosVazios).length),
+    qualityRow("Funcionários", formatNumber(companyValidation.registrosImportados)),
+    qualityRow("Consolidado", formatNumber(consolidatedValidation.registrosImportados)),
+    qualityRow("Duplicados removidos", formatNumber(consolidatedValidation.duplicadosPorChapaPeriodo)),
+    qualityRow("Alertas funcionários", formatNumber((companyValidation.alertas?.camposObrigatoriosVazios || 0) + (companyValidation.alertas?.linhasSemData || 0))),
   ].join("");
 
   elements.sourcePanel.innerHTML = [
     qualityRow("Arquivo", escapeHtml(state.data.metadata.sourceFile)),
+    qualityRow("Planilha geral", escapeHtml(state.data.metadata.companySourceFile || "Não importada")),
     qualityRow("Tabela atestados", `${state.data.sourceTables.atestados.table} (${formatNumber(state.data.sourceTables.atestados.records)})`),
+    qualityRow("Registros funcionários", formatNumber(state.data.sourceTables.funcionarios?.records || 0)),
     qualityRow("Tabela afastados", `${state.data.sourceTables.afastados.table} (${formatNumber(state.data.sourceTables.afastados.records)})`),
     qualityRow("Schema", state.data.metadata.schemaVersion),
   ].join("");
@@ -736,6 +779,15 @@ function renderRanks(container, items, suffix) {
 
 function qualityRow(label, value) {
   return `<div class="quality-row"><span>${label}</span><span class="rank-value">${value}</span></div>`;
+}
+
+function observationSummary(record) {
+  return [
+    record.observacaoGestores,
+    record.tratativaSeguranca,
+    record.tratativaDiretoria,
+    record.tratativaJonilton,
+  ].filter(Boolean).join(" | ");
 }
 
 function emptyState(message = "Sem dados para os filtros atuais.") {

@@ -13,7 +13,16 @@ DEFAULT_INPUT = ROOT / "public" / "data" / "dashboard-data.json"
 DEFAULT_OUTPUT = ROOT / "public" / "data" / "dashboard-data.demo.json"
 
 sys.path.insert(0, str(ROOT))
-from scripts.import_excel import away_aggregates, main_aggregates, unique_sorted  # noqa: E402
+from scripts.import_excel import (  # noqa: E402
+    SOURCE_COMPANY,
+    SOURCE_CONSOLIDATED,
+    SOURCE_LABELS,
+    SOURCE_OPERATION,
+    away_aggregates,
+    build_consolidated_records,
+    main_aggregates,
+    unique_sorted,
+)
 
 
 FIRST_NAMES = [
@@ -113,6 +122,12 @@ def anonymize(payload: dict[str, Any]) -> dict[str, Any]:
         record["nome"] = mapped_person(record["nome"], chapa)
         record["medico"] = mapped_doctor(record["medico"])
 
+    for record in result["records"].get("funcionarios", []):
+        chapa = mapped_chapa(record["chapa"])
+        record["chapa"] = chapa
+        record["nome"] = mapped_person(record["nome"], chapa)
+        record["medico"] = mapped_doctor(record["medico"])
+
     for record in result["records"]["afastados"]:
         chapa = mapped_chapa(record["chapa"])
         record["chapa"] = chapa
@@ -120,21 +135,33 @@ def anonymize(payload: dict[str, Any]) -> dict[str, Any]:
         record["medico"] = mapped_doctor(record["medico"])
 
     main_records = result["records"]["atestados"]
+    company_records = result["records"].get("funcionarios", [])
+    consolidated_records = build_consolidated_records(main_records, company_records)
     away_records = result["records"]["afastados"]
+    result["records"]["consolidado"] = consolidated_records
+    option_records = consolidated_records + away_records
 
     result["options"] = {
-        "anos": sorted({record["ano"] for record in main_records if record["ano"]}),
-        "meses": unique_sorted(main_records + away_records, "mes"),
-        "funcoes": unique_sorted(main_records + away_records, "funcao"),
-        "chapas": sorted({record["chapa"] for record in main_records + away_records if record["chapa"]}, key=str),
-        "medicos": unique_sorted(main_records + away_records, "medico"),
-        "capitulosCid": unique_sorted(main_records + away_records, "capituloCid"),
+        "anos": sorted({record["ano"] for record in option_records if record.get("ano")}),
+        "meses": unique_sorted(option_records, "mes"),
+        "funcoes": unique_sorted(option_records, "funcao"),
+        "chapas": sorted({record["chapa"] for record in option_records if record.get("chapa")}, key=str),
+        "medicos": unique_sorted(option_records, "medico"),
+        "capitulosCid": unique_sorted(option_records, "capituloCid"),
+        "origens": [
+            {"value": SOURCE_CONSOLIDATED, "label": SOURCE_LABELS[SOURCE_CONSOLIDATED]},
+            {"value": SOURCE_OPERATION, "label": SOURCE_LABELS[SOURCE_OPERATION]},
+            {"value": SOURCE_COMPANY, "label": SOURCE_LABELS[SOURCE_COMPANY]},
+        ],
     }
     result["aggregates"] = {
+        "consolidado": main_aggregates(consolidated_records),
         "atestados": main_aggregates(main_records),
+        "funcionarios": main_aggregates(company_records),
         "afastados": away_aggregates(away_records),
     }
     result["metadata"]["sourceFile"] = "dados-anonimizados-para-demonstracao"
+    result["metadata"]["companySourceFile"] = "dados-gerais-anonimizados-para-demonstracao"
     result["metadata"]["anonymized"] = True
     result["metadata"]["anonymizationNote"] = (
         "Nomes, chapas e medicos foram substituidos por valores ficticios. "

@@ -26,6 +26,12 @@
     <main>
       <section class="toolbar" aria-label="Filtros">
         <label>
+          Origem
+          <select id="filterSource">
+            <option value="consolidado">Consolidado</option>
+          </select>
+        </label>
+        <label>
           Ano
           <select id="filterYear">
             <option value="">Todos</option>
@@ -174,19 +180,25 @@
             <table>
               <thead>
                 <tr>
+                  <th>Origem</th>
                   <th>Chapa</th>
                   <th>Nome</th>
                   <th>Função</th>
+                  <th>Recebimento</th>
                   <th>Período</th>
                   <th>Data Inicial</th>
                   <th>Data Final</th>
                   <th>Dias</th>
+                  <th>Tipo</th>
                   <th>Ano</th>
                   <th>Atestado</th>
                   <th>Mês</th>
                   <th>Médico</th>
+                  <th>CRM</th>
+                  <th>INSS</th>
                   <th>Capítulo CID</th>
                   <th>Subcategoria CID</th>
+                  <th>Observações</th>
                 </tr>
               </thead>
               <tbody id="recordsTable"></tbody>

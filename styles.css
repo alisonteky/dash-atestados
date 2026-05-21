@@ -151,7 +151,7 @@ main {
   box-shadow: var(--shadow);
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(220px, 1.4fr) auto;
+  grid-template-columns: repeat(5, minmax(120px, 1fr)) minmax(220px, 1.4fr) auto;
   padding: 14px;
 }
 
@@ -413,7 +413,7 @@ button:focus-visible {
 
 table {
   border-collapse: collapse;
-  min-width: 1200px;
+  min-width: 1900px;
   width: 100%;
 }
 

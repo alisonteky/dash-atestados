@@ -15,6 +15,7 @@ from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT.parent / "ATESTADOS OPERAÇÃO 2026 cópia.xlsx"
+DEFAULT_COMPANY_SOURCE = ROOT.parent / "Planilha Monitoramento dos Atestados Médicos .xlsx"
 DEFAULT_OUTPUT = ROOT / "public" / "data" / "dashboard-data.json"
 
 NS = {
@@ -38,6 +39,49 @@ MONTH_ORDER = [
     "Novembro",
     "Dezembro",
 ]
+
+MONTH_ALIASES = {
+    "JAN": 1,
+    "JANEIRO": 1,
+    "FEV": 2,
+    "FEVEREIRO": 2,
+    "MAR": 3,
+    "MARÇO": 3,
+    "MARCO": 3,
+    "ABR": 4,
+    "ABRIL": 4,
+    "MAI": 5,
+    "MAIO": 5,
+    "JUN": 6,
+    "JUNHO": 6,
+    "JUL": 7,
+    "JULHO": 7,
+    "AGO": 8,
+    "AGOSTO": 8,
+    "SET": 9,
+    "SETEMBRO": 9,
+    "OUT": 10,
+    "OUTUBRO": 10,
+    "NOV": 11,
+    "NOVEMBRO": 11,
+    "DEZ": 12,
+    "DEZEMBRO": 12,
+}
+
+MIN_COMPANY_YEAR = 2022
+MAX_COMPANY_YEAR = 2027
+
+SOURCE_OPERATION = "operacao"
+SOURCE_COMPANY = "empresa"
+SOURCE_CONSOLIDATED = "consolidado"
+
+SOURCE_LABELS = {
+    SOURCE_OPERATION: "Operação",
+    SOURCE_COMPANY: "Empresa",
+    SOURCE_CONSOLIDATED: "Consolidado",
+}
+
+IGNORED_COMPANY_SHEETS = {"atestados", "Plan1"}
 
 
 def read_xml(zf: zipfile.ZipFile, name: str) -> ET.Element:
@@ -191,25 +235,182 @@ def year_value(value: Any) -> int | None:
         return None
 
 
+def month_name(date_value: dt.date | None) -> str:
+    if not date_value:
+        return ""
+    return MONTH_ORDER[date_value.month - 1]
+
+
+def valid_company_date(date_value: dt.date | None) -> bool:
+    return bool(date_value and MIN_COMPANY_YEAR <= date_value.year <= MAX_COMPANY_YEAR)
+
+
+def add_month(date_value: dt.date) -> dt.date:
+    year = date_value.year + (1 if date_value.month == 12 else 0)
+    month = 1 if date_value.month == 12 else date_value.month + 1
+    return dt.date(year, month, 1)
+
+
+def sheet_month_year(sheet_name: str, fallback: dt.date) -> dt.date:
+    normalized = (
+        re.sub(r"\s+", " ", sheet_name.upper().replace("Ç", "C"))
+        .replace("(", " ")
+        .replace(")", " ")
+        .replace("-", " ")
+        .strip()
+    )
+    parts = normalized.split()
+    month = None
+    year = None
+
+    for part in parts:
+        if part in MONTH_ALIASES:
+            month = MONTH_ALIASES[part]
+        elif re.fullmatch(r"\d{2,4}", part):
+            number = int(part)
+            year = 2000 + number if number < 100 else number
+
+    if month and year:
+        return dt.date(year, month, 1)
+    if month:
+        if fallback.month == month:
+            return fallback
+        return dt.date(fallback.year, month, 1)
+    return fallback
+
+
+def parse_period_dates(value: Any) -> tuple[dt.date | None, dt.date | None, str]:
+    raw = period_value(value)
+    date_value = excel_date(value)
+    if date_value:
+        return date_value, date_value, raw
+
+    matches = re.findall(r"(\d{1,2})/(\d{1,2})/(\d{2,5})", raw)
+    dates: list[dt.date] = []
+    for day, month, year in matches:
+        year_number = int(year[:2] + year[-2:]) if len(year) > 4 and year.startswith("20") else int(year)
+        if year_number < 100:
+            year_number += 2000
+        try:
+            dates.append(dt.date(year_number, int(month), int(day)))
+        except ValueError:
+            continue
+
+    if dates:
+        return dates[0], dates[-1], raw
+    return None, None, raw
+
+
+def duration_value(value: Any) -> tuple[int, str, str]:
+    raw = text_value(value)
+    if re.fullmatch(r"\d+(\.\d+)?", raw):
+        return int(float(raw)), "dias", raw
+    if raw.casefold() == "horas":
+        return 0, "horas", raw
+    return 0, "indefinido", raw
+
+
+def safe_id(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-") or "sheet"
+
+
+def cid_chapter(value: Any) -> str:
+    text = text_value(value)
+    normalized = text.casefold()
+    if not text or "sem cid" in normalized or "não especificado" in normalized or "nao especificado" in normalized:
+        return "CID Não especificado"
+
+    match = re.search(r"\b([A-Z])\s*\.?\s*(\d{2})", text.upper())
+    if not match:
+        return "CID Não especificado"
+
+    letter = match.group(1)
+    number = int(match.group(2))
+    if letter in {"A", "B"}:
+        return "A00-B99 — Algumas doenças infecciosas e parasitárias"
+    if letter == "C" or (letter == "D" and number <= 48):
+        return "C00-D48 — Neoplasias (tumores)"
+    if letter == "D":
+        return "D50-D89 — Doenças do sangue e órgãos hematopoéticos"
+    if letter == "E":
+        return "E00-E90 — Doenças endócrinas, nutricionais e metabólicas"
+    if letter == "F":
+        return "F00-F99 — Transtornos mentais e comportamentais"
+    if letter == "G":
+        return "G00-G99 — Doenças do sistema nervoso"
+    if letter == "H" and number <= 59:
+        return "H00-H59 — Doenças do olho e anexos"
+    if letter == "H":
+        return "H60-H95 — Doenças do ouvido e da apófise mastoide"
+    if letter == "I":
+        return "I00-I99 — Doenças do aparelho circulatório"
+    if letter == "J":
+        return "J00-J99 — Doenças do aparelho respiratório"
+    if letter == "K":
+        return "K00-K93 — Doenças do aparelho digestivo"
+    if letter == "L":
+        return "L00-L99 — Doenças da pele e do tecido subcutâneo"
+    if letter == "M":
+        return "M00-M99 — Doenças do sistema osteomuscular e do tecido conjuntivo"
+    if letter == "N":
+        return "N00-N99 — Doenças do aparelho geniturinário"
+    if letter == "O":
+        return "O00-O99 — Gravidez, parto e puerpério"
+    if letter == "P":
+        return "P00-P96 — Afecções originadas no período perinatal"
+    if letter == "Q":
+        return "Q00-Q99 — Malformações congênitas"
+    if letter == "R":
+        return "R00-R99 — Sint sinais e achad anorm ex clín e laborat"
+    if letter in {"S", "T"}:
+        return "S00-T98 — Lesões, enven. e outras conseq. de causas ext."
+    if letter in {"V", "W", "X", "Y"}:
+        return "V01-Y98 — Causas externas de morbidade e mortalidade"
+    if letter == "Z":
+        return "Z00-Z99 — Contatos com serviços de saúde"
+    return "CID Não especificado"
+
+
+def record_dedupe_key(record: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        text_value(record.get("chapa")).casefold(),
+        text_value(record.get("dataInicial")),
+        text_value(record.get("dataFinal")),
+    )
+
+
 def normalize_main_record(row: dict[str, Any]) -> dict[str, Any]:
     start = excel_date(row.get("Data Inicial"))
     end = excel_date(row.get("Data Final"))
+    total = int(number_value(row.get("Total no mês")))
     return {
         "id": f"atestados-{row['_excelRow']}",
         "excelRow": row["_excelRow"],
+        "sourceSheet": " ATESTADOS GERAL",
+        "origem": SOURCE_OPERATION,
+        "origemLabel": SOURCE_LABELS[SOURCE_OPERATION],
+        "dataRecebimento": "",
         "chapa": text_value(row.get("Chapa")),
         "nome": text_value(row.get("Nome")),
         "funcao": text_value(row.get("Função")),
         "periodo": period_value(row.get("Período")),
         "dataInicial": start.isoformat() if start else "",
         "dataFinal": end.isoformat() if end else "",
-        "totalNoMes": int(number_value(row.get("Total no mês"))),
+        "totalNoMes": total,
+        "diasAfastamentoOriginal": str(total),
+        "tipoDuracao": "dias",
         "ano": year_value(row.get("Ano")),
         "atestados": int(number_value(first_present(row, "Atestados", " Atestados"))),
         "mes": text_value(row.get("Mês")),
         "medico": text_value(row.get("Médico")),
+        "crmMedico": "",
+        "afastamentoInss": "",
         "capituloCid": text_value(row.get("Capítulo CID")),
         "subcategoriaCid": text_value(row.get("Subcategoria do CID")),
+        "observacaoGestores": "",
+        "tratativaSeguranca": "",
+        "tratativaDiretoria": "",
+        "tratativaJonilton": "",
     }
 
 
@@ -217,6 +418,9 @@ def normalize_away_record(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": f"afastados-{row['_excelRow']}",
         "excelRow": row["_excelRow"],
+        "sourceSheet": "AFASTADOS",
+        "origem": SOURCE_OPERATION,
+        "origemLabel": SOURCE_LABELS[SOURCE_OPERATION],
         "colaborador": text_value(row.get("Colaboradores")),
         "chapa": text_value(row.get("Chapa")),
         "funcao": text_value(row.get("Função")),
@@ -226,6 +430,56 @@ def normalize_away_record(row: dict[str, Any]) -> dict[str, Any]:
         "medico": text_value(row.get("Médico")),
         "capituloCid": text_value(row.get("Capitulo CID")),
         "subcategoriaCid": text_value(row.get("Subcategoria CID")),
+    }
+
+
+def normalize_company_record(sheet_name: str, sheet_reference: dt.date, row_num: int, cells: dict[str, Any]) -> dict[str, Any] | None:
+    chapa = text_value(cells.get(cell_addr(2, row_num)))
+    nome = text_value(cells.get(cell_addr(3, row_num)))
+    if not chapa and not nome:
+        return None
+    if chapa.casefold() in {"chapa", "total"}:
+        return None
+
+    received = excel_date(cells.get(cell_addr(1, row_num)))
+    start, end, periodo = parse_period_dates(cells.get(cell_addr(5, row_num)))
+    total, duration_type, duration_raw = duration_value(cells.get(cell_addr(6, row_num)))
+    reference_date = (
+        received if valid_company_date(received)
+        else start if valid_company_date(start)
+        else end if valid_company_date(end)
+        else sheet_reference
+    )
+    cid_text = text_value(cells.get(cell_addr(10, row_num)))
+
+    return {
+        "id": f"empresa-{safe_id(sheet_name)}-{row_num}",
+        "excelRow": row_num,
+        "sourceSheet": sheet_name,
+        "origem": SOURCE_COMPANY,
+        "origemLabel": SOURCE_LABELS[SOURCE_COMPANY],
+        "dataRecebimento": received.isoformat() if received else "",
+        "chapa": chapa,
+        "nome": nome,
+        "funcao": text_value(cells.get(cell_addr(4, row_num))),
+        "periodo": periodo,
+        "dataInicial": start.isoformat() if start else "",
+        "dataFinal": end.isoformat() if end else "",
+        "totalNoMes": total,
+        "diasAfastamentoOriginal": duration_raw,
+        "tipoDuracao": duration_type,
+        "ano": reference_date.year if reference_date else None,
+        "atestados": 1,
+        "mes": month_name(reference_date),
+        "medico": text_value(cells.get(cell_addr(7, row_num))),
+        "crmMedico": text_value(cells.get(cell_addr(8, row_num))),
+        "afastamentoInss": text_value(cells.get(cell_addr(9, row_num))),
+        "capituloCid": cid_chapter(cid_text),
+        "subcategoriaCid": cid_text or "Não especificado",
+        "observacaoGestores": text_value(cells.get(cell_addr(11, row_num))),
+        "tratativaSeguranca": text_value(cells.get(cell_addr(12, row_num))),
+        "tratativaDiretoria": text_value(cells.get(cell_addr(13, row_num))),
+        "tratativaJonilton": text_value(cells.get(cell_addr(14, row_num))),
     }
 
 
@@ -280,6 +534,66 @@ def table_rows(zf: zipfile.ZipFile, table: dict[str, Any], shared_strings: list[
         record["_excelRow"] = row_num
         rows.append(record)
     return rows
+
+
+def parse_company_records(source: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    records: list[dict[str, Any]] = []
+    sheet_summaries: list[dict[str, Any]] = []
+
+    with zipfile.ZipFile(source) as zf:
+        shared_strings = load_shared_strings(zf)
+        sheets, _ = parse_workbook(zf)
+        sheet_reference = dt.date(2022, 10, 1)
+
+        for sheet_name, sheet_part in sheets.items():
+            if sheet_name in IGNORED_COMPANY_SHEETS:
+                sheet_summaries.append({"sheet": sheet_name, "records": 0, "imported": False})
+                continue
+
+            sheet_reference = sheet_month_year(sheet_name, sheet_reference)
+
+            cells = sheet_cells(zf, sheet_part, shared_strings)
+            if "chapa" not in text_value(cells.get("B2")).casefold() or "nome" not in text_value(cells.get("C2")).casefold():
+                sheet_summaries.append({"sheet": sheet_name, "records": 0, "imported": False})
+                sheet_reference = add_month(sheet_reference)
+                continue
+
+            row_numbers = [
+                split_cell_ref(address)[1]
+                for address, value in cells.items()
+                if text_value(value)
+            ]
+            imported = 0
+            if row_numbers:
+                for row_num in range(3, max(row_numbers) + 1):
+                    record = normalize_company_record(sheet_name, sheet_reference, row_num, cells)
+                    if not record:
+                        continue
+                    records.append(record)
+                    imported += 1
+
+            sheet_summaries.append({
+                "sheet": sheet_name,
+                "records": imported,
+                "imported": imported > 0,
+                "referenceMonth": sheet_reference.isoformat(),
+            })
+            sheet_reference = add_month(sheet_reference)
+
+    return records, sheet_summaries
+
+
+def build_consolidated_records(operation_records: list[dict[str, Any]], company_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    consolidated = [dict(record, origemConsolidada=SOURCE_OPERATION) for record in operation_records]
+    operation_keys = {record_dedupe_key(record) for record in operation_records if record_dedupe_key(record)[0]}
+
+    for record in company_records:
+        key = record_dedupe_key(record)
+        if key[0] and key in operation_keys:
+            continue
+        consolidated.append(dict(record, origemConsolidada=SOURCE_COMPANY))
+
+    return consolidated
 
 
 def group_sum(records: list[dict[str, Any]], key: str, value: str, order: list[str] | None = None) -> list[dict[str, Any]]:
@@ -350,6 +664,8 @@ def main_aggregates(records: list[dict[str, Any]]) -> dict[str, Any]:
         "topMedicos": top_count(records, "medico", 20),
         "topCapitulosCid": top_metrics(records, "capituloCid", 20),
         "topSubcategoriasCid": top_metrics(records, "subcategoriaCid", 20),
+        "porOrigem": group_metrics(records, "origemLabel"),
+        "porTipoDuracao": group_metrics(records, "tipoDuracao"),
     }
 
 
@@ -413,6 +729,38 @@ def validate_main(records: list[dict[str, Any]], total_row: dict[str, Any] | Non
     return checks
 
 
+def validate_company(records: list[dict[str, Any]], sheet_summaries: list[dict[str, Any]]) -> dict[str, Any]:
+    required = ["chapa", "nome", "funcao", "medico", "subcategoriaCid"]
+    missing = {
+        field: [f"{record['sourceSheet']}!{record['excelRow']}" for record in records if not text_value(record.get(field))]
+        for field in required
+    }
+    missing = {field: rows[:50] for field, rows in missing.items() if rows}
+    duration_counts = Counter(record["tipoDuracao"] for record in records)
+    undated = [
+        f"{record['sourceSheet']}!{record['excelRow']}"
+        for record in records
+        if not record["dataRecebimento"] and not record["dataInicial"]
+    ]
+    return {
+        "registrosImportados": len(records),
+        "somaDiasImportada": sum(record["totalNoMes"] for record in records),
+        "somaAtestadosImportada": sum(record["atestados"] for record in records),
+        "chapasUnicas": len({record["chapa"] for record in records if record["chapa"]}),
+        "funcoesUnicas": len({record["funcao"] for record in records if record["funcao"]}),
+        "abasImportadas": sum(1 for sheet in sheet_summaries if sheet["imported"]),
+        "abasIgnoradas": [sheet["sheet"] for sheet in sheet_summaries if not sheet["imported"]],
+        "tiposDuracao": dict(duration_counts),
+        "camposObrigatoriosVazios": missing,
+        "linhasSemData": undated[:50],
+        "alertas": {
+            "camposObrigatoriosVazios": sum(len(rows) for rows in missing.values()),
+            "linhasSemData": len(undated),
+        },
+        "status": "ok" if records else "nao_importado",
+    }
+
+
 def cid_quality(records: list[dict[str, Any]]) -> dict[str, Any]:
     normalized: defaultdict[str, set[str]] = defaultdict(set)
     for record in records:
@@ -427,7 +775,7 @@ def cid_quality(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def build_payload(source: Path) -> dict[str, Any]:
+def build_payload(source: Path, company_source: Path | None = DEFAULT_COMPANY_SOURCE) -> dict[str, Any]:
     with zipfile.ZipFile(source) as zf:
         shared_strings = load_shared_strings(zf)
         _, tables = parse_workbook(zf)
@@ -444,20 +792,36 @@ def build_payload(source: Path) -> dict[str, Any]:
         away_rows = table_rows(zf, tables["Tabela328"], shared_strings)
         away_records = [normalize_away_record(row) for row in away_rows if text_value(row.get("Chapa"))]
 
+    company_records: list[dict[str, Any]] = []
+    company_sheets: list[dict[str, Any]] = []
+    if company_source and company_source.exists():
+        company_records, company_sheets = parse_company_records(company_source)
+
+    consolidated_records = build_consolidated_records(main_records, company_records)
+    duplicated_by_period = len(company_records) + len(main_records) - len(consolidated_records)
+    dashboard_records = consolidated_records if consolidated_records else main_records
+    option_records = dashboard_records + away_records
+
     options = {
-        "anos": sorted({record["ano"] for record in main_records if record["ano"]}),
-        "meses": unique_sorted(main_records + away_records, "mes"),
-        "funcoes": unique_sorted(main_records + away_records, "funcao"),
-        "chapas": sorted({record["chapa"] for record in main_records + away_records if record["chapa"]}, key=str),
-        "medicos": unique_sorted(main_records + away_records, "medico"),
-        "capitulosCid": unique_sorted(main_records + away_records, "capituloCid"),
+        "anos": sorted({record["ano"] for record in option_records if record.get("ano")}),
+        "meses": unique_sorted(option_records, "mes"),
+        "funcoes": unique_sorted(option_records, "funcao"),
+        "chapas": sorted({record["chapa"] for record in option_records if record.get("chapa")}, key=str),
+        "medicos": unique_sorted(option_records, "medico"),
+        "capitulosCid": unique_sorted(option_records, "capituloCid"),
+        "origens": [
+            {"value": SOURCE_CONSOLIDATED, "label": SOURCE_LABELS[SOURCE_CONSOLIDATED]},
+            {"value": SOURCE_OPERATION, "label": SOURCE_LABELS[SOURCE_OPERATION]},
+            {"value": SOURCE_COMPANY, "label": SOURCE_LABELS[SOURCE_COMPANY]},
+        ],
     }
 
     return {
         "metadata": {
             "sourceFile": str(source),
+            "companySourceFile": str(company_source) if company_source else "",
             "generatedAt": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
-            "schemaVersion": 1,
+            "schemaVersion": 2,
         },
         "sourceTables": {
             "atestados": {
@@ -470,18 +834,44 @@ def build_payload(source: Path) -> dict[str, Any]:
                 "table": "Tabela328",
                 "records": len(away_records),
             },
+            "funcionarios": {
+                "sheet": "abas mensais",
+                "table": "",
+                "records": len(company_records),
+                "sheets": company_sheets,
+            },
+            "consolidado": {
+                "sheet": "Operação + Empresa",
+                "table": "",
+                "records": len(consolidated_records),
+                "duplicadosPorChapaPeriodo": duplicated_by_period,
+            },
         },
         "validation": {
             "atestados": validate_main(main_records, total_row),
+            "funcionarios": validate_company(company_records, company_sheets) if company_records else {
+                "registrosImportados": 0,
+                "status": "nao_importado",
+            },
+            "consolidado": {
+                "registrosImportados": len(consolidated_records),
+                "duplicadosPorChapaPeriodo": duplicated_by_period,
+                "status": "ok",
+            },
             "qualidadeCid": cid_quality(main_records),
+            "qualidadeCidConsolidado": cid_quality(dashboard_records),
         },
         "options": options,
         "aggregates": {
+            "consolidado": main_aggregates(dashboard_records),
             "atestados": main_aggregates(main_records),
+            "funcionarios": main_aggregates(company_records),
             "afastados": away_aggregates(away_records),
         },
         "records": {
+            "consolidado": dashboard_records,
             "atestados": main_records,
+            "funcionarios": company_records,
             "afastados": away_records,
         },
     }
@@ -490,29 +880,41 @@ def build_payload(source: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Importa o Excel de atestados para JSON.")
     parser.add_argument("source", nargs="?", default=str(DEFAULT_SOURCE), help="Caminho do arquivo .xlsx")
+    parser.add_argument("--company-source", default=str(DEFAULT_COMPANY_SOURCE), help="Caminho da planilha geral de funcionarios")
+    parser.add_argument("--no-company", action="store_true", help="Nao importa a planilha geral de funcionarios")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Arquivo JSON de saida")
     parser.add_argument("--check", action="store_true", help="Apenas valida a leitura, sem gravar JSON")
     args = parser.parse_args()
 
     source = Path(args.source).resolve()
+    company_source = None if args.no_company else Path(args.company_source).resolve()
     output = Path(args.output).resolve()
 
     if not source.exists():
         print(f"Arquivo Excel nao encontrado: {source}", file=sys.stderr)
         return 2
+    if company_source and not company_source.exists():
+        print(f"Planilha geral nao encontrada: {company_source}", file=sys.stderr)
+        return 2
 
-    payload = build_payload(source)
+    payload = build_payload(source, company_source)
     validation = payload["validation"]["atestados"]
+    company_validation = payload["validation"]["funcionarios"]
+    consolidated_validation = payload["validation"]["consolidado"]
 
     print("Importacao analisada:")
     print(f"- registros de atestados: {payload['sourceTables']['atestados']['records']}")
+    print(f"- registros gerais de funcionarios: {payload['sourceTables']['funcionarios']['records']}")
+    print(f"- registros consolidados: {payload['sourceTables']['consolidado']['records']}")
     print(f"- registros de afastados: {payload['sourceTables']['afastados']['records']}")
     print(f"- dias importados: {validation['somaDiasImportada']}")
     print(f"- atestados importados: {validation['somaAtestadosImportada']}")
-    print(f"- status: {validation['status']}")
+    print(f"- duplicados por chapa/periodo no consolidado: {consolidated_validation['duplicadosPorChapaPeriodo']}")
+    print(f"- status operacao: {validation['status']}")
+    print(f"- status funcionarios: {company_validation['status']}")
 
-    if validation["status"] != "ok":
-        print(json.dumps(validation, ensure_ascii=False, indent=2), file=sys.stderr)
+    if validation["status"] != "ok" or company_validation["status"] not in {"ok", "nao_importado"}:
+        print(json.dumps(payload["validation"], ensure_ascii=False, indent=2), file=sys.stderr)
         return 1
 
     if not args.check:
