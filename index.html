@@ -260,7 +260,34 @@
       </section>
     </div>
 
+    <div class="modal-backdrop hidden" id="importModal" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+      <section class="modal-card modal-wide">
+        <div class="modal-heading">
+          <h2 id="importTitle">Importação Profissional</h2>
+          <button class="icon-button" id="closeImportModal" type="button" title="Fechar" aria-label="Fechar">×</button>
+        </div>
+        <form id="uploadForm" class="upload-form">
+          <div class="upload-grid">
+            <label>
+              Planilha Operação
+              <input id="operationFile" name="operationFile" type="file" accept=".xlsx" required />
+            </label>
+            <label>
+              Planilha Empresa
+              <input id="companyFile" name="companyFile" type="file" accept=".xlsx" required />
+            </label>
+          </div>
+          <p class="form-message" id="importMessage"></p>
+          <div class="modal-actions">
+            <button class="ghost-button" id="prevalidateButton" type="submit">Pré-validar</button>
+            <button class="primary-button" id="commitImportButton" type="button" disabled>Confirmar importação</button>
+          </div>
+        </form>
+        <div class="import-summary" id="importSummary"></div>
+      </section>
+    </div>
+
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260522-profissional"></script>
   </body>
 </html>

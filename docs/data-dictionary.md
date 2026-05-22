@@ -32,7 +32,7 @@ Campos adicionados pelo importador:
 
 ## Fonte: `Planilha Monitoramento dos Atestados Médicos .xlsx` / abas mensais de 2025 e 2026
 
-Esta fonte nao possui tabelas formais do Excel. O importador identifica as abas mensais pelo cabecalho na linha 2 e importa somente o historico de 2025 e 2026. O ano/mes usado nos filtros da Empresa vem da aba mensal, para evitar que datas digitadas incorretamente no historico poluam os indicadores.
+Esta fonte nao possui tabelas formais do Excel. O importador identifica as abas mensais pelo cabecalho na linha 2 e importa somente o historico de 2025 e 2026. Motoristas e cobradores desta planilha sao ignorados, pois a fonte oficial dessas funcoes e a planilha `ATESTADOS OPERAÇÃO 2026 cópia.xlsx`. O ano/mes usado nos filtros da Empresa vem da aba mensal, para evitar que datas digitadas incorretamente no historico poluam os indicadores.
 
 | Campo original | Campo JSON | Tipo | Regra |
 | --- | --- | --- | --- |
@@ -76,7 +76,7 @@ Esta fonte nao possui tabelas formais do Excel. O importador identifica as abas 
 ## Observacoes de qualidade
 
 - A linha total da `Tabela324` e excluida dos registros e usada apenas para validacao.
-- A visao `Consolidado` combina Operacao e Empresa e remove sobreposicoes por `chapa + dataInicial + dataFinal`, preservando Operacao quando houver conflito.
+- A visao `Consolidado` combina Operacao e Empresa. Motoristas e cobradores ficam exclusivamente na Operacao; a remocao de sobreposicoes por `chapa + dataInicial + dataFinal` permanece como protecao adicional.
 - Linhas da planilha geral com `HORAS` sao contadas como atestado, mas nao somam dias de afastamento.
 - Alguns capitulos CID aparecem com grafias diferentes; por enquanto o dashboard preserva o texto original.
 - Dados medicos e CID sao sensiveis. A versao final deve ter autenticacao, autorizacao e trilha de auditoria.

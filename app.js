@@ -6,6 +6,8 @@ const API = {
   logout: "/api/auth/logout",
   dashboard: "/api/dashboard",
   imports: "/api/imports",
+  prevalidateImport: "/api/imports/prevalidate",
+  commitImport: "/api/imports/commit",
 };
 const PAGE_SIZE = 100;
 const MONTHS = [
@@ -43,6 +45,7 @@ const state = {
     atestadosPage: 1,
     afastadosPage: 1,
   },
+  pendingImport: null,
 };
 
 const elements = {};
@@ -104,6 +107,15 @@ function cacheElements() {
     "historyModal",
     "importHistory",
     "closeHistoryModal",
+    "importModal",
+    "uploadForm",
+    "operationFile",
+    "companyFile",
+    "prevalidateButton",
+    "commitImportButton",
+    "importSummary",
+    "importMessage",
+    "closeImportModal",
     "toast",
   ].forEach((id) => {
     elements[id] = document.getElementById(id);
@@ -117,11 +129,14 @@ function bindEvents() {
   elements.exportAwayCsv.addEventListener("click", () => exportCsv(filteredAfastados(), "afastados-filtrados.csv"));
   elements.loginButton.addEventListener("click", () => openAuthModal());
   elements.logoutButton.addEventListener("click", logout);
-  elements.importButton.addEventListener("click", importExcel);
+  elements.importButton.addEventListener("click", openImportModal);
   elements.historyButton.addEventListener("click", openHistoryModal);
   elements.loginForm.addEventListener("submit", login);
   elements.closeAuthModal.addEventListener("click", closeAuthModal);
   elements.closeHistoryModal.addEventListener("click", closeHistoryModal);
+  elements.closeImportModal.addEventListener("click", closeImportModal);
+  elements.uploadForm.addEventListener("submit", prevalidateImport);
+  elements.commitImportButton.addEventListener("click", commitImport);
   elements.recordPrev.addEventListener("click", () => changePage("atestadosPage", -1));
   elements.recordNext.addEventListener("click", () => changePage("atestadosPage", 1));
   elements.awayPrev.addEventListener("click", () => changePage("afastadosPage", -1));
@@ -315,32 +330,115 @@ async function logout() {
   openAuthModal("Sessão encerrada.");
 }
 
-async function importExcel() {
+function openImportModal() {
   if (!state.backend.authenticated) {
     openAuthModal("Entre para importar o Excel.");
     return;
   }
-  const originalText = elements.importButton.textContent;
-  elements.importButton.disabled = true;
-  elements.importButton.textContent = "Importando...";
+  state.pendingImport = null;
+  elements.uploadForm.reset();
+  elements.importMessage.textContent = "";
+  elements.importSummary.innerHTML = emptyState("Selecione as duas planilhas e execute a pré-validação.");
+  elements.commitImportButton.disabled = true;
+  elements.importModal.classList.remove("hidden");
+}
+
+function closeImportModal() {
+  elements.importModal.classList.add("hidden");
+}
+
+async function prevalidateImport(event) {
+  event.preventDefault();
+  if (!elements.operationFile.files.length || !elements.companyFile.files.length) {
+    elements.importMessage.textContent = "Selecione as duas planilhas.";
+    return;
+  }
+  const formData = new FormData();
+  formData.append("operationFile", elements.operationFile.files[0]);
+  formData.append("companyFile", elements.companyFile.files[0]);
+
+  elements.prevalidateButton.disabled = true;
+  elements.commitImportButton.disabled = true;
+  elements.importMessage.textContent = "Pré-validando planilhas...";
+  elements.importSummary.innerHTML = emptyState("Lendo as duas planilhas e calculando divergências.");
   try {
-    const response = await fetch(API.imports, {
+    const response = await fetch(API.prevalidateImport, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({}),
+      body: formData,
     });
     if (!response.ok) {
       throw new Error(await readError(response));
     }
-    showToast("Importação concluída");
+    const payload = await response.json();
+    state.pendingImport = payload;
+    elements.importMessage.textContent = payload.summary.canCommit
+      ? `Lote ${payload.version} pré-validado.`
+      : `Lote ${payload.version} bloqueado por divergências.`;
+    elements.commitImportButton.disabled = !payload.summary.canCommit;
+    renderImportSummary(payload);
+  } catch (error) {
+    state.pendingImport = null;
+    elements.importMessage.textContent = error.message || "Falha na pré-validação.";
+    elements.importSummary.innerHTML = "";
+  } finally {
+    elements.prevalidateButton.disabled = false;
+  }
+}
+
+async function commitImport() {
+  if (!state.pendingImport?.batchId) {
+    elements.importMessage.textContent = "Pré-valide um lote antes de confirmar.";
+    return;
+  }
+  elements.commitImportButton.disabled = true;
+  elements.importMessage.textContent = "Confirmando importação...";
+  try {
+    const response = await fetch(API.commitImport, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({ batchId: state.pendingImport.batchId }),
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response));
+    }
+    const payload = await response.json();
+    showToast(`Lote ${payload.version} confirmado`);
+    closeImportModal();
     await loadData();
   } catch (error) {
-    showToast(error.message || "Falha na importação");
-  } finally {
-    elements.importButton.disabled = false;
-    elements.importButton.textContent = originalText;
+    elements.importMessage.textContent = error.message || "Falha ao confirmar importação.";
+    elements.commitImportButton.disabled = false;
   }
+}
+
+function renderImportSummary(payload) {
+  const summary = payload.summary;
+  const rows = [
+    ["Lote", payload.version],
+    ["Operação", `${formatNumber(summary.records.operacao)} registros`],
+    ["Empresa", `${formatNumber(summary.records.empresa)} registros`],
+    ["Afastados", `${formatNumber(summary.records.afastados)} registros`],
+    ["Consolidado", `${formatNumber(summary.records.consolidado)} registros`],
+    ["Dias consolidados", formatNumber(summary.totals.dias)],
+    ["Atestados válidos", formatNumber(summary.totals.atestados)],
+    ["Anos", summary.years.join(", ")],
+  ];
+  const messages = [...summary.errors.map((message) => ["Erro", message]), ...summary.warnings.map((message) => ["Aviso", message])];
+  elements.importSummary.innerHTML = `
+    <div class="quality-stack">
+      ${rows.map(([label, value]) => qualityRow(label, escapeHtml(value))).join("")}
+    </div>
+    <div class="import-messages">
+      ${messages.length ? messages.map(([label, value]) => `
+        <div class="quality-row">
+          <span>${escapeHtml(label)}</span>
+          <span class="rank-value">${escapeHtml(value)}</span>
+        </div>
+      `).join("") : qualityRow("Divergências", "0")}
+    </div>
+  `;
 }
 
 async function openHistoryModal() {
@@ -368,18 +466,39 @@ function renderHistory(imports) {
     <article class="history-item">
       <div>
         <strong>${escapeHtml(item.sourceName || item.sourceFile)}</strong>
-        <span class="badge ${item.status === "ok" ? "status-ok" : "status-attention"}">${escapeHtml(item.status.toUpperCase())}</span>
+        <span class="badge ${["ok", "committed"].includes(item.status) ? "status-ok" : "status-attention"}">${escapeHtml(item.status.toUpperCase())}</span>
       </div>
       <div class="history-meta">
+        ${item.version ? `<span>Lote ${formatNumber(item.version)}</span>` : ""}
         <span>${formatDateTime(item.finishedAt)}</span>
         <span>${formatNumber(item.recordsAtestados)} atestados</span>
+        ${item.recordsFuncionarios !== undefined ? `<span>${formatNumber(item.recordsFuncionarios)} empresa</span>` : ""}
         <span>${formatNumber(item.recordsAfastados)} afastados</span>
         <span>${formatNumber(item.totalDias)} dias</span>
         <span>${formatNumber(item.totalAtestados)} atestados válidos</span>
       </div>
+      ${item.status === "committed" ? `<button class="ghost-button rollback-button" type="button" data-batch-id="${item.id}">Rollback</button>` : ""}
       ${item.errorMessage ? `<p class="form-message">${escapeHtml(item.errorMessage)}</p>` : ""}
     </article>
   `).join("");
+  document.querySelectorAll(".rollback-button").forEach((button) => {
+    button.addEventListener("click", () => rollbackImport(button.dataset.batchId));
+  });
+}
+
+async function rollbackImport(batchId) {
+  if (!batchId) return;
+  const response = await fetch(`${API.imports}/${batchId}/rollback`, {
+    method: "POST",
+    credentials: "same-origin",
+  });
+  if (!response.ok) {
+    showToast(await readError(response));
+    return;
+  }
+  showToast("Rollback registrado");
+  await openHistoryModal();
+  await loadData();
 }
 
 async function readError(response) {
@@ -638,6 +757,7 @@ function renderQuality() {
   const consolidatedValidation = state.data.validation.consolidado || {};
   const quality = state.data.validation.qualidadeCid;
   const statusClass = validation.status === "ok" ? "status-ok" : "status-attention";
+  const importedYears = state.data.metadata.importYears || validation.anosImportados || [];
 
   elements.validationPanel.innerHTML = [
     qualityRow("Status", `<span class="badge ${statusClass}">${validation.status.toUpperCase()}</span>`),
@@ -645,8 +765,10 @@ function renderQuality() {
     qualityRow("Dias", `${formatNumber(validation.somaDiasImportada)} / ${formatNumber(validation.somaDiasEsperada)}`),
     qualityRow("Atestados", `${formatNumber(validation.somaAtestadosImportada)} / ${formatNumber(validation.somaAtestadosEsperada)}`),
     qualityRow("Linha total", validation.linhaTotalExcel),
+    qualityRow("Anos importados", importedYears.join(", ") || "Todos"),
     qualityRow("Campos vazios", Object.keys(validation.camposObrigatoriosVazios).length),
     qualityRow("Funcionários", formatNumber(companyValidation.registrosImportados)),
+    qualityRow("Operacionais ignorados na Empresa", formatNumber(companyValidation.linhasOperacionaisIgnoradas || 0)),
     qualityRow("Consolidado", formatNumber(consolidatedValidation.registrosImportados)),
     qualityRow("Duplicados removidos", formatNumber(consolidatedValidation.duplicadosPorChapaPeriodo)),
     qualityRow("Alertas funcionários", formatNumber((companyValidation.alertas?.camposObrigatoriosVazios || 0) + (companyValidation.alertas?.linhasSemData || 0))),
@@ -657,6 +779,7 @@ function renderQuality() {
     qualityRow("Planilha geral", escapeHtml(state.data.metadata.companySourceFile || "Não importada")),
     qualityRow("Tabela atestados", `${state.data.sourceTables.atestados.table} (${formatNumber(state.data.sourceTables.atestados.records)})`),
     qualityRow("Registros funcionários", formatNumber(state.data.sourceTables.funcionarios?.records || 0)),
+    qualityRow("Linhas operacionais da Empresa", formatNumber(state.data.sourceTables.funcionarios?.operationalIgnored || 0)),
     qualityRow("Tabela afastados", `${state.data.sourceTables.afastados.table} (${formatNumber(state.data.sourceTables.afastados.records)})`),
     qualityRow("Schema", state.data.metadata.schemaVersion),
   ].join("");

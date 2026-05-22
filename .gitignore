@@ -5,6 +5,12 @@ __pycache__/
 storage/*.sqlite3
 storage/*.sqlite3-*
 storage/*.db
+storage/imports/
+storage/staged/
+.env
+.env.*
+!.env.example
+!deploy/.env.example
 
 # OS/editor noise
 .DS_Store
@@ -15,3 +21,5 @@ Thumbs.db
 # Runtime logs
 *.log
 npm-debug.log*
+backups/
+deploy/backups/

@@ -1,0 +1,10 @@
+.git
+.github
+storage/
+public/data/dashboard-data.json
+__pycache__/
+*.pyc
+*.log
+.env
+.env.*
+!.env.example

@@ -12,8 +12,8 @@ npm run import
 
 Por padrão, o importador lê duas planilhas na pasta `mvp`:
 
-- `ATESTADOS OPERAÇÃO 2026 cópia.xlsx`: base de motoristas, cobradores e afastados.
-- `Planilha Monitoramento dos Atestados Médicos .xlsx`: base geral de funcionários, limitada ao histórico de 2025 e 2026.
+- `ATESTADOS OPERAÇÃO 2026 cópia.xlsx`: base operacional de motoristas, cobradores e afastados.
+- `Planilha Monitoramento dos Atestados Médicos .xlsx`: base de manutenção e administrativo, limitada ao histórico de 2025 e 2026. Linhas de motoristas/cobradores nesta planilha são ignoradas para evitar dupla origem.
 
 2. Subir o dashboard local:
 
@@ -90,21 +90,62 @@ O importador confere a tabela principal `Tabela324` contra a linha total do Exce
 
 Tambem importa a tabela `Tabela328` da aba `AFASTADOS`.
 
-A planilha geral de funcionários não possui tabelas formais do Excel; ela é lida por abas mensais de 2025 e 2026. Cada linha recebe `origem = Empresa`, e a visão `Consolidado` remove sobreposições por `chapa + dataInicial + dataFinal`, preservando o registro da Operação quando há conflito.
+A planilha geral de funcionários não possui tabelas formais do Excel; ela é lida por abas mensais de 2025 e 2026. Cada linha de manutenção/administrativo recebe `origem = Empresa`. Motoristas e cobradores são mantidos exclusivamente na origem `Operação`, e a visão `Consolidado` ainda remove sobreposições por `chapa + dataInicial + dataFinal` como proteção adicional.
 
 ## Funcionalidades profissionais iniciadas
 
 - Login com sessao HTTP-only.
 - Perfil unico inicial: `admin`.
 - Banco SQLite local ignorado pelo Git.
-- Endpoint autenticado para importar as duas planilhas em lote.
-- Historico das importacoes com status, totais e hash do arquivo.
+- Estrutura profissional de usuarios, perfis, permissoes, lotes, funcionarios, medicos, CID, atestados, afastamentos, validacoes, erros e auditoria.
+- Upload autenticado das duas planilhas em lote.
+- Pre-validacao antes de gravar os registros relacionais.
+- Confirmacao manual da importacao.
+- Versionamento por lote.
+- Rollback logico de lotes confirmados.
+- Armazenamento privado dos arquivos Excel importados em `storage/imports/`.
+- Historico das importacoes com status, totais, versao e hash dos arquivos.
+- Logs de auditoria por usuario para login, visualizacao, importacao, confirmacao e rollback.
 - Dashboard usando API autenticada quando o backend esta ativo e JSON demonstrativo quando publicado estaticamente.
+- Schema PostgreSQL inicial em `server/schema.postgres.sql`.
+- Conexao PostgreSQL real via `DATABASE_URL`, mantendo SQLite apenas como fallback local sem dependencias.
+
+## Fluxo profissional de importacao
+
+1. Entrar com o usuario administrador.
+2. Abrir `Importar Excel`.
+3. Selecionar a planilha de Operacao e a planilha Empresa.
+4. Executar `Pre-validar`.
+5. Revisar totais, avisos e divergencias.
+6. Confirmar a importacao.
+7. Consultar o historico ou reverter um lote confirmado quando necessario.
+
+## Implantacao sem custo
+
+A recomendacao sem mensalidade e uma VM Oracle Cloud Always Free com backend, PostgreSQL e armazenamento privado no mesmo servidor. A alternativa Supabase Free pode servir para homologacao, mas possui limites de banco, storage, pausa por inatividade e backup.
+
+Detalhes em `docs/deployment-free.md`.
+
+## PostgreSQL e deploy
+
+Para rodar com PostgreSQL real, defina `DATABASE_URL`:
+
+```powershell
+$env:DATABASE_URL="postgresql://dash_user:SENHA@localhost:5432/dash_atestados"
+$env:DASH_ADMIN_PASSWORD="SENHA_ADMIN_FORTE"
+$env:DASH_COOKIE_SECURE="1"
+python server/app.py --init-db
+python server/app.py --host 0.0.0.0 --port 8000
+```
+
+Tambem ha `Dockerfile`, `requirements.txt` e `deploy/docker-compose.yml` para subir app + PostgreSQL em uma VM.
+
+Detalhes em `docs/postgres-deploy.md`.
 
 ## Proximo ciclo recomendado
 
-- Trocar SQLite por PostgreSQL quando houver ambiente servidor definido.
-- Criar perfis de acesso por area e nivel de permissao.
-- Adicionar upload seguro de novos arquivos Excel pela interface.
-- Normalizar cadastro de colaboradores, medicos e capitulos CID.
-- Adicionar logs de auditoria por visualizacao, importacao e exportacao.
+- Testar o deploy em uma VM gratuita com `deploy/docker-compose.yml`.
+- Criar perfis de acesso por area e nivel de permissao alem do admin.
+- Adicionar criptografia dos arquivos importados em repouso.
+- Agendar a rotina `deploy/backup-postgres.sh` e testar `deploy/restore-postgres.sh`.
+- Revisar politicas internas de LGPD antes de inserir dados reais em producao.

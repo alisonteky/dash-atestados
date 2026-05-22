@@ -516,6 +516,30 @@ td {
   min-height: 20px;
 }
 
+.upload-form,
+.import-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.upload-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.import-messages {
+  display: grid;
+  gap: 8px;
+}
+
 .history-list {
   display: grid;
   gap: 10px;
@@ -540,6 +564,10 @@ td {
   flex-wrap: wrap;
   font-size: 0.82rem;
   gap: 8px 14px;
+}
+
+.rollback-button {
+  justify-self: end;
 }
 
 button:disabled {
@@ -573,6 +601,7 @@ button:disabled {
 
   .toolbar,
   .dashboard-grid,
+  .upload-grid,
   .kpi-grid {
     grid-template-columns: 1fr;
   }

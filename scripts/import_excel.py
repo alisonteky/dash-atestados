@@ -68,9 +68,8 @@ MONTH_ALIASES = {
     "DEZEMBRO": 12,
 }
 
-MIN_COMPANY_YEAR = 2025
-MAX_COMPANY_YEAR = 2026
-COMPANY_IMPORT_YEARS = {2025, 2026}
+IMPORT_YEARS = {2025, 2026}
+OPERATIONAL_FUNCTIONS = ("MOTORISTA", "COBRADOR")
 
 SOURCE_OPERATION = "operacao"
 SOURCE_COMPANY = "empresa"
@@ -242,8 +241,43 @@ def month_name(date_value: dt.date | None) -> str:
     return MONTH_ORDER[date_value.month - 1]
 
 
-def valid_company_date(date_value: dt.date | None) -> bool:
-    return bool(date_value and MIN_COMPANY_YEAR <= date_value.year <= MAX_COMPANY_YEAR)
+def normalized_lookup(value: Any) -> str:
+    return (
+        text_value(value)
+        .upper()
+        .replace("Á", "A")
+        .replace("À", "A")
+        .replace("Â", "A")
+        .replace("Ã", "A")
+        .replace("É", "E")
+        .replace("Ê", "E")
+        .replace("Í", "I")
+        .replace("Ó", "O")
+        .replace("Ô", "O")
+        .replace("Õ", "O")
+        .replace("Ú", "U")
+        .replace("Ç", "C")
+    )
+
+
+def is_operational_function(value: Any) -> bool:
+    normalized = normalized_lookup(value)
+    return any(re.search(rf"\b{function}\b", normalized) for function in OPERATIONAL_FUNCTIONS)
+
+
+def record_year(record: dict[str, Any]) -> int | None:
+    year = year_value(record.get("ano"))
+    if year:
+        return year
+    for field in ("dataInicial", "dataRecebimento"):
+        date_value = excel_date(record.get(field))
+        if date_value:
+            return date_value.year
+    return None
+
+
+def in_import_years(record: dict[str, Any]) -> bool:
+    return record_year(record) in IMPORT_YEARS
 
 
 def add_month(date_value: dt.date) -> dt.date:
@@ -416,6 +450,7 @@ def normalize_main_record(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_away_record(row: dict[str, Any]) -> dict[str, Any]:
+    start, end, _ = parse_period_dates(row.get("Período"))
     return {
         "id": f"afastados-{row['_excelRow']}",
         "excelRow": row["_excelRow"],
@@ -426,6 +461,9 @@ def normalize_away_record(row: dict[str, Any]) -> dict[str, Any]:
         "chapa": text_value(row.get("Chapa")),
         "funcao": text_value(row.get("Função")),
         "periodo": period_value(row.get("Período")),
+        "dataInicial": start.isoformat() if start else "",
+        "dataFinal": end.isoformat() if end else "",
+        "ano": start.year if start else year_value(row.get("Ano")),
         "total": int(number_value(row.get("Total"))),
         "mes": text_value(row.get("Mês")),
         "medico": text_value(row.get("Médico")),
@@ -547,7 +585,7 @@ def parse_company_records(source: Path) -> tuple[list[dict[str, Any]], list[dict
                 continue
 
             sheet_reference = sheet_month_year(sheet_name, sheet_reference)
-            if sheet_reference.year not in COMPANY_IMPORT_YEARS:
+            if sheet_reference.year not in IMPORT_YEARS:
                 sheet_summaries.append({
                     "sheet": sheet_name,
                     "records": 0,
@@ -570,10 +608,14 @@ def parse_company_records(source: Path) -> tuple[list[dict[str, Any]], list[dict
                 if text_value(value)
             ]
             imported = 0
+            operational_ignored = 0
             if row_numbers:
                 for row_num in range(3, max(row_numbers) + 1):
                     record = normalize_company_record(sheet_name, sheet_reference, row_num, cells)
                     if not record:
+                        continue
+                    if is_operational_function(record.get("funcao")):
+                        operational_ignored += 1
                         continue
                     records.append(record)
                     imported += 1
@@ -582,6 +624,7 @@ def parse_company_records(source: Path) -> tuple[list[dict[str, Any]], list[dict
                 "sheet": sheet_name,
                 "records": imported,
                 "imported": imported > 0,
+                "operationalIgnored": operational_ignored,
                 "referenceMonth": sheet_reference.isoformat(),
             })
             sheet_reference = add_month(sheet_reference)
@@ -690,7 +733,7 @@ def away_aggregates(records: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def validate_main(records: list[dict[str, Any]], total_row: dict[str, Any] | None) -> dict[str, Any]:
+def validate_main(records: list[dict[str, Any]], total_row: dict[str, Any] | None, ignored_by_year: int = 0) -> dict[str, Any]:
     total_dias = sum(record["totalNoMes"] for record in records)
     total_atestados = sum(record["atestados"] for record in records)
     required = [
@@ -716,9 +759,11 @@ def validate_main(records: list[dict[str, Any]], total_row: dict[str, Any] | Non
         "somaDiasImportada": total_dias,
         "somaAtestadosImportada": total_atestados,
         "camposObrigatoriosVazios": missing,
+        "anosImportados": sorted({record["ano"] for record in records if record.get("ano")}),
+        "linhasForaDoRecorteIgnoradas": ignored_by_year,
     }
 
-    if total_row:
+    if total_row and ignored_by_year == 0:
         expected_days = int(number_value(total_row.get("Total no mês")))
         expected_certificates = int(number_value(first_present(total_row, "Atestados", " Atestados")))
         checks.update(
@@ -728,6 +773,13 @@ def validate_main(records: list[dict[str, Any]], total_row: dict[str, Any] | Non
                 "somaAtestadosEsperada": expected_certificates,
                 "somaDiasConfere": total_dias == expected_days,
                 "somaAtestadosConfere": total_atestados == expected_certificates,
+            }
+        )
+    elif total_row:
+        checks.update(
+            {
+                "linhaTotalExcel": total_row.get("_excelRow"),
+                "comparacaoLinhaTotalExcel": "ignorada_por_recorte_2025_2026",
             }
         )
 
@@ -755,7 +807,9 @@ def validate_company(records: list[dict[str, Any]], sheet_summaries: list[dict[s
         "chapasUnicas": len({record["chapa"] for record in records if record["chapa"]}),
         "funcoesUnicas": len({record["funcao"] for record in records if record["funcao"]}),
         "abasImportadas": sum(1 for sheet in sheet_summaries if sheet["imported"]),
-        "abasIgnoradas": [sheet["sheet"] for sheet in sheet_summaries if not sheet["imported"]],
+        "abasProcessadas": sum(1 for sheet in sheet_summaries if sheet["imported"] or sheet.get("operationalIgnored", 0)),
+        "abasIgnoradas": [sheet["sheet"] for sheet in sheet_summaries if not sheet["imported"] and not sheet.get("operationalIgnored", 0)],
+        "linhasOperacionaisIgnoradas": sum(sheet.get("operationalIgnored", 0) for sheet in sheet_summaries),
         "tiposDuracao": dict(duration_counts),
         "camposObrigatoriosVazios": missing,
         "linhasSemData": undated[:50],
@@ -793,10 +847,14 @@ def build_payload(source: Path, company_source: Path | None = DEFAULT_COMPANY_SO
 
         main_rows = table_rows(zf, tables["Tabela324"], shared_strings)
         total_row = next((row for row in reversed(main_rows) if not text_value(row.get("Chapa"))), None)
-        main_records = [normalize_main_record(row) for row in main_rows if text_value(row.get("Chapa"))]
+        raw_main_records = [normalize_main_record(row) for row in main_rows if text_value(row.get("Chapa"))]
+        main_records = [record for record in raw_main_records if in_import_years(record)]
+        main_ignored_by_year = len(raw_main_records) - len(main_records)
 
         away_rows = table_rows(zf, tables["Tabela328"], shared_strings)
-        away_records = [normalize_away_record(row) for row in away_rows if text_value(row.get("Chapa"))]
+        raw_away_records = [normalize_away_record(row) for row in away_rows if text_value(row.get("Chapa"))]
+        away_records = [record for record in raw_away_records if not record_year(record) or in_import_years(record)]
+        away_ignored_by_year = len(raw_away_records) - len(away_records)
 
     company_records: list[dict[str, Any]] = []
     company_sheets: list[dict[str, Any]] = []
@@ -828,22 +886,27 @@ def build_payload(source: Path, company_source: Path | None = DEFAULT_COMPANY_SO
             "companySourceFile": str(company_source) if company_source else "",
             "generatedAt": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
             "schemaVersion": 2,
+            "importYears": sorted(IMPORT_YEARS),
+            "companyOperationalFunctionsIgnored": list(OPERATIONAL_FUNCTIONS),
         },
         "sourceTables": {
             "atestados": {
                 "sheet": " ATESTADOS GERAL",
                 "table": "Tabela324",
                 "records": len(main_records),
+                "ignoredByYear": main_ignored_by_year,
             },
             "afastados": {
                 "sheet": "AFASTADOS",
                 "table": "Tabela328",
                 "records": len(away_records),
+                "ignoredByYear": away_ignored_by_year,
             },
             "funcionarios": {
                 "sheet": "abas mensais",
                 "table": "",
                 "records": len(company_records),
+                "operationalIgnored": sum(sheet.get("operationalIgnored", 0) for sheet in company_sheets),
                 "sheets": company_sheets,
             },
             "consolidado": {
@@ -854,7 +917,7 @@ def build_payload(source: Path, company_source: Path | None = DEFAULT_COMPANY_SO
             },
         },
         "validation": {
-            "atestados": validate_main(main_records, total_row),
+            "atestados": validate_main(main_records, total_row, main_ignored_by_year),
             "funcionarios": validate_company(company_records, company_sheets) if company_records else {
                 "registrosImportados": 0,
                 "status": "nao_importado",
@@ -911,6 +974,7 @@ def main() -> int:
     print("Importacao analisada:")
     print(f"- registros de atestados: {payload['sourceTables']['atestados']['records']}")
     print(f"- registros gerais de funcionarios: {payload['sourceTables']['funcionarios']['records']}")
+    print(f"- linhas operacionais ignoradas na Empresa: {company_validation.get('linhasOperacionaisIgnoradas', 0)}")
     print(f"- registros consolidados: {payload['sourceTables']['consolidado']['records']}")
     print(f"- registros de afastados: {payload['sourceTables']['afastados']['records']}")
     print(f"- dias importados: {validation['somaDiasImportada']}")
